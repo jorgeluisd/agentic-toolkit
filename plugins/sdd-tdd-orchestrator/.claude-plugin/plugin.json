@@ -2,7 +2,7 @@
   "name": "sdd-tdd-orchestrator",
   "displayName": "SDD/TDD Orchestrator",
   "version": "1.0.0",
-  "description": "Pipeline de desarrollo guiado por especificacion con Strict TDD: 9 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, security-reviewer, archiver), 2 gates humanos, 13 skills de arquitectura Onion + Screaming, datos, seguridad y entrega, comandos de sesion y guardrails por hooks. Agnostico de producto.",
+  "description": "Pipeline de desarrollo guiado por especificacion con Strict TDD: 10 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, 13 skills de arquitectura Onion + Screaming, datos, seguridad y entrega, comandos de sesion y guardrails por hooks. Agnostico de producto.",
   "author": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
   "license": "UNLICENSED",
   "keywords": ["sdd", "tdd", "onion-architecture", "screaming-architecture", "nestjs", "nextjs", "drizzle", "security"],

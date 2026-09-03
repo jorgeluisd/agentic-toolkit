@@ -46,4 +46,4 @@ Notas para el verifier: …
 - No escribe la descripción del PR (comando `/pr-draft` cuando el verifier está en PASS).
 
 ## Handoff
-Cuando todas las tareas del plan están `terminada`, entrega `05-apply-progress.md` al `verifier`. Si alguna quedó `bloqueada`, lo reporta al humano antes de verificar.
+Cuando todas las tareas del plan están `terminada`, entrega `05-apply-progress.md` al `verifier`, al `code-reviewer` y, si hubo riesgos, al `security-reviewer`; los tres corren en paralelo y ninguno recibe tu razonamiento, solo el diff y los artefactos. Si alguna quedó `bloqueada`, lo reporta al humano antes de verificar.

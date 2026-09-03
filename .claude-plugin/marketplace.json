@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "sdd-tdd-orchestrator",
-      "description": "Pipeline SDD+TDD de 9 agentes y 2 gates humanos, 13 skills compartidas, comandos de sesion y guardrails por hooks. Agnostico de producto.",
+      "description": "Pipeline SDD+TDD de 10 agentes y 2 gates humanos, 13 skills compartidas, comandos de sesion y guardrails por hooks. Agnostico de producto.",
       "source": "./plugins/sdd-tdd-orchestrator",
       "category": "development"
     }

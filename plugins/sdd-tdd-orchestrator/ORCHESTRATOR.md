@@ -1,12 +1,12 @@
 # ORCHESTRATOR — SDD + Strict TDD
 
-Pipeline de agentes para construir software con especificación verificable, diseño explícito, TDD estricto y dos paradas humanas. Agnóstico de producto: el contexto de negocio, el stack concreto y las invariantes de cada proyecto viven en su `CLAUDE.md` y en su skill local de invariantes; este documento define solo el proceso.
+Pipeline de 10 agentes para construir software con especificación verificable, diseño explícito, TDD estricto y dos paradas humanas. Agnóstico de producto: el contexto de negocio, el stack concreto y las invariantes de cada proyecto viven en su `CLAUDE.md` y en su skill local de invariantes; este documento define solo el proceso.
 
 ## 1. Pipeline
 
 ```
 explorer → proposer → spec-writer → designer → task-planner → [GATE 1] →
-(implementer ⟲ strict-tdd)* → verifier ∥ security-reviewer → [GATE 2] → merge → archiver
+(implementer ⟲ strict-tdd)* → verifier ∥ code-reviewer ∥ security-reviewer → [GATE 2] → merge → archiver
 ```
 
 | # | Agente | Responsabilidad (una línea) | Artefacto que produce |
@@ -19,9 +19,10 @@ explorer → proposer → spec-writer → designer → task-planner → [GATE 1]
 | — | **GATE 1** | Humano aprueba spec + diseño + plan + amenazas con la palabra `acepto` | `gates.md` |
 | 6 | `implementer` | Único que escribe código de producción; una tarea por vez; carga el protocolo `strict-tdd` | `05-apply-progress.md` + `tdd-evidence.log` (hook) |
 | 7 | `verifier` | Checks mecánicos con salida literal; PASS/FAIL con recomendación por FAIL; no corrige | `06-verify.md` |
-| 8 | `security-reviewer` | Lectura adversarial del diff (y del diseño si toca auth/pagos/datos personales); riesgo residual | `07-security.md` |
+| 8 | `code-reviewer` | Revisión de código independiente: fidelidad al diseño, reglas de las skills, calidad de tests, duplicación, deuda; hallazgos por severidad | `07-review.md` |
+| 9 | `security-reviewer` | Lectura adversarial del diff (y del diseño si toca auth/pagos/datos personales); riesgo residual | `07-security.md` |
 | — | **GATE 2** | Humano decide merge: alcance, producto, riesgo residual, migración | `gates.md` |
-| 9 | `archiver` | Post-merge: ADRs ratificados/enmendados, backlog, memoria sin datos personales, próximo paso | `08-close.md` |
+| 10 | `archiver` | Post-merge: ADRs ratificados/enmendados, backlog, memoria sin datos personales, próximo paso | `08-close.md` |
 
 `strict-tdd` **no es un agente**: es la skill/protocolo que el `implementer` carga en cada tarea con `TDD: ON`. Separarlo en otro subagente rompería el ciclo RED→GREEN a través de una frontera de contexto.
 
@@ -30,7 +31,7 @@ explorer → proposer → spec-writer → designer → task-planner → [GATE 1]
 | Nivel | Cuándo | Recorrido |
 |---|---|---|
 | Completo | Feature nueva, cambio de esquema, migración, cualquier cosa que toque auth, pagos, datos personales o integraciones | Pipeline entero |
-| Bugfix | Defecto acotado con test reproducible, sin cambio de contrato ni de esquema | `explorer` → `implementer` (TDD ON: el test que reproduce el bug es el RED) → `verifier` → GATE 2 |
+| Bugfix | Defecto acotado con test reproducible, sin cambio de contrato ni de esquema | `explorer` → `implementer` (TDD ON: el test que reproduce el bug es el RED) → `verifier` ∥ `code-reviewer` → GATE 2 |
 | Trivial | Typo, comentario, copy, bump de patch sin cambio de API | Sin pipeline; commit directo bajo la skill `delivery-workflow` |
 
 Si durante un bugfix aparece un cambio de contrato o de esquema, se detiene y se sube al nivel completo.
@@ -45,13 +46,14 @@ Reglas:
 - Ningún artefacto supera 150 líneas salvo `05-apply-progress.md`.
 - Ningún artefacto contiene datos personales reales, secretos ni identificadores de producción. Los ejemplos son sintéticos. (Hook `guard-pii-artifacts` lo verifica.)
 - El orquestador no arranca un agente si falta el artefacto previo.
+- `07-review.md` y `07-security.md` son independientes entre sí y del `06-verify.md`; los tres entran juntos al GATE 2.
 - `gates.md` registra cada gate: fecha, quién, veredicto (`APROBADO` / `CAMBIOS` / `RECHAZADO`), token explícito y observaciones. Un gate sin registro no ocurrió.
 
 ## 4. Gates
 
 **GATE 1 — después del `task-planner`.** El humano aprueba la spec, el diseño, el plan y la tabla de amenazas juntos, porque el plan es lo que se va a ejecutar y el diseño es lo que se va a pagar. Antes del gate solo se escribe documentación; ningún archivo de código. Token: la palabra `acepto`. Sin token no hay implementación. Checklist en `gates/gate-1-design.md`.
 
-**GATE 2 — después de `verifier` PASS (+ `security-reviewer` si corrió).** Contiene solo lo que la máquina no puede decidir: ¿es lo correcto para el producto?, ¿el diff coincide con lo aprobado en GATE 1?, ¿se acepta el riesgo residual?, ¿go/no-go de la migración?, ¿los ADRs quedaron firmados? Un FAIL del `verifier` nunca llega al gate. Checklist en `gates/gate-2-impl.md`.
+**GATE 2 — después de `verifier` PASS, `code-reviewer` sin hallazgos altos (+ `security-reviewer` si corrió).** Contiene solo lo que la máquina no puede decidir: ¿es lo correcto para el producto?, ¿el diff coincide con lo aprobado en GATE 1?, ¿se acepta el riesgo residual?, ¿go/no-go de la migración?, ¿los ADRs quedaron firmados? Un FAIL del `verifier` nunca llega al gate. Checklist en `gates/gate-2-impl.md`.
 
 ## 5. Modelo por agente (valor por defecto; el proyecto puede subirlo, nunca bajarlo en agentes marcados ⬆)
 
@@ -60,9 +62,9 @@ Reglas:
 | explorer, spec-writer, task-planner, verifier, archiver | económico | Trabajo estructurado sobre insumos claros |
 | proposer, designer ⬆ | capaz | Decisiones con trade-offs y reversibilidad |
 | implementer | capaz para tareas de `domain`/`application`; económico para adapters/UI marcados así en el plan | El plan lo fija por tarea |
-| security-reviewer ⬆ | capaz | Lectura adversarial; el costo de un falso negativo es alto |
+| code-reviewer ⬆, security-reviewer ⬆ | capaz | Lectura crítica y adversarial de código ajeno; el costo de un falso negativo es alto |
 
-El modelo de planificación no implementa; el que implementa no se aprueba a sí mismo.
+El modelo de planificación no implementa; el que implementa no se revisa ni se aprueba a sí mismo: `verifier`, `code-reviewer` y `security-reviewer` corren en contextos separados y solo reciben el diff y los artefactos, nunca el razonamiento del `implementer`.
 
 ## 6. Principios
 

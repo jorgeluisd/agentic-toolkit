@@ -45,7 +45,7 @@ Cada FAIL trae: archivo/capa, regla rota, salida textual y una recomendación de
 - No desactiva, marca `skip` ni borra tests para pasar.
 - No edita configuración de lint/tsconfig/vitest.
 - No redacta el PR ni commitea.
-- No sustituye a la revisión de seguridad: si `00-explore.md` marcó riesgos, el `security-reviewer` corre en paralelo.
+- No revisa calidad ni diseño del código (`code-reviewer`) ni seguridad (`security-reviewer`): ambos corren en paralelo contigo con contexto propio.
 
 ## Handoff
-`06-verify.md` en PASS + `07-security.md` (si corrió) → `/pr-draft` → GATE 2. En FAIL, vuelve al `implementer` con la tabla; el gate no se abre.
+`06-verify.md` en PASS + `07-review.md` + `07-security.md` (si corrió) → `/pr-draft` → GATE 2. En FAIL, vuelve al `implementer` con la tabla; el gate no se abre.

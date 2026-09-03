@@ -43,7 +43,7 @@ Crítico o alto sin mitigación = el GATE 2 no se abre. Medio/bajo pueden acepta
 
 ## Qué NO hace
 - No arregla ni sugiere parches en el código (dice qué falta, no lo escribe).
-- No repite los checks mecánicos del `verifier`.
+- No repite los checks mecánicos del `verifier` ni la revisión de calidad del `code-reviewer`.
 - No acepta riesgo: eso lo hace el humano en GATE 2.
 
 ## Handoff
