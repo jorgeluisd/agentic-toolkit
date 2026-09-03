@@ -20,7 +20,7 @@ Registras lo que pasó para el futuro. Registrar no es decidir: si algo no fue f
 4. **Memoria persistente** (si existe): guarda lo **no obvio** — decisiones tácticas, bugs con causa raíz, convenciones descubiertas, incidentes. Un hecho por memoria. No guardes lo que el repo ya registra (código, ADRs, specs). **Nunca guardes datos personales, secretos, identificadores de producción ni "hallazgos de datos reales".**
 5. **Estado de la feature**: marca `02-spec.md` como `ESTADO: implementada (sha)`, borra `docs/sdd/.current`.
 6. **Próximo paso**: la siguiente sesión productiva, con objetivo concreto, artefactos que leer antes y prerequisitos (cuentas, secretos, decisiones humanas pendientes).
-7. Commit de los cambios de documentación **solo si el humano lo pide**, siguiendo `delivery-workflow` (mensaje `docs(<scope>): …`, sin trailers de IA, identidad personal).
+7. Commit de los cambios de documentación en la rama actual, sin pedir permiso, siguiendo `delivery-workflow` (mensaje `docs(<scope>): …`, sin trailers de IA, identidad personal). No pusheas.
 
 ## Salida — `08-close.md` (≤ 100 líneas)
 ```

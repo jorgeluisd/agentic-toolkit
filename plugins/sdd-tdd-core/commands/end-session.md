@@ -6,7 +6,7 @@ Cierra la sesión en este orden estricto.
 
 1. **Resumen** (idioma del proyecto): objetivo declarado, completado, abierto y por qué, decisiones tomadas (formales o tácticas), descubrimientos y blockers, archivos nuevos o muy modificados.
 
-2. **Git**: `git status` y `git log --oneline -5`. Si hay cambios sin commitear, propón los commits siguiendo `delivery-workflow` (formato `type(scope)` en inglés, sin trailers de IA, identidad personal) y **espera el OK** antes de ejecutarlos. Confirma si hay push y PR, o qué queda pendiente.
+2. **Git**: `git status` y `git log --oneline -5`. Si hay cambios sin commitear que están en verde, commitéalos siguiendo `delivery-workflow` (un commit por cambio coherente, `type(scope)` en inglés, sin trailers de IA, identidad personal); lo que esté a medias o en rojo se deja sin commitear y se anota como pendiente. No pushees: pregunta si el humano quiere push y PR, o qué queda pendiente.
 
 3. **Clasifica cada hallazgo**:
    a) Decisión sustantiva (arquitectura, stack, modelo, reglas de producto) → ADR con `/new-adr`; no lo escribas aquí, lístalo con el número que le tocaría.

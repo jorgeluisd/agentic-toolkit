@@ -120,7 +120,7 @@ Validez (la revisa el `verifier`): cada fila tiene un timestamp presente en el l
 
 - No corre `<test>` ni `<test:integration>` completos: eso es del `verifier` en el gate.
 - No skippea, comenta ni debilita tests para llegar a verde.
-- No commitea ni hace push: el commit lo hace el `implementer` solo cuando el humano lo pide o el proyecto lo permite; la evidencia no depende de hashes.
+- No commitea dentro del ciclo ni hace push: el `implementer` commitea al cerrar la tarea (REFACTOR y checks en verde), no en RED ni en GREEN; la evidencia no depende de hashes.
 - No decide el nivel de test por comodidad: lo fija la capa (§3).
 - No mockea el ORM, el logger ni la cola de jobs; no prueba contra producción.
 

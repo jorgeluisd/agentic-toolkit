@@ -28,7 +28,7 @@ Antes de lanzar el primer agente, una línea: "Esto es nivel **<completo|bugfix|
 - Cada agente recibe rutas de artefactos, nunca el historial del chat.
 - Ningún archivo de código antes del `acepto` del GATE 1 (nivel completo).
 - Un FAIL del `verifier` o un hallazgo alto del `code-reviewer` nunca llega al GATE 2.
-- No se commitea, mergea ni pushea sin pedido explícito; el PR se redacta con `/sdd-tdd-core:pr-draft`.
+- Los commits en la rama de feature son autónomos (uno por tarea en verde); push, PR y merge los autoriza el humano. El PR se redacta con `/sdd-tdd-core:pr-draft`.
 - El `CLAUDE.md` del proyecto y su skill local de invariantes priman sobre cualquier default del plugin.
 
 ## 4. Cómo se verifica que se aplicó

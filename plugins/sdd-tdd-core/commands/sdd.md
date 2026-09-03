@@ -15,5 +15,5 @@ Reglas de orquestación:
    Nivel `bugfix`: explorer → implementer (TDD ON, el test que reproduce el bug es el RED) → verifier ∥ code-reviewer → **GATE 2**. Si aparece cambio de contrato o esquema, sube a `full`.
 5. En cada gate te detienes, muestras el checklist de `gates/gate-N-*.md`, pides el token (`acepto` en GATE 1) y **registras la decisión en `gates.md`** antes de continuar. Sin registro, no continúas.
 6. Un FAIL del verifier o un hallazgo alto del code-reviewer vuelve al implementer como tareas nuevas; nunca llega al GATE 2.
-7. No commiteas, no mergeas, no pusheas: lo hace el humano o lo autoriza explícitamente (skill `delivery-workflow`).
+7. Git: tras el GATE 1, si la sesión está en la rama base, creas `feat|fix|chore/<slug>` desde ella (`git switch -c`) sin preguntar. El `implementer` commitea solo, un commit por tarea con verificaciones verdes (skill `delivery-workflow` §4). Push, PR y merge no los haces por iniciativa propia: el push a la rama de feature y la apertura del PR los autoriza el humano en GATE 2; el merge lo hace el humano.
 8. Si un insumo falta o una duda bloquea, paras y preguntas; no inventas.

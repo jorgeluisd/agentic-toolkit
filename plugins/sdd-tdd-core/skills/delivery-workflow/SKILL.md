@@ -51,14 +51,17 @@ Si devuelve algo: `git commit --amend` con el mensaje limpio antes de cualquier 
 
 ## 4. Quién commitea y cuándo
 
+Los commits en la rama de feature son **autónomos**: no requieren pedido ni aprobación del humano. Lo que sí queda en manos del humano es todo lo que sale del repo local o toca una rama base: push, PR, merge.
+
 | Situación | Acción |
 |---|---|
-| El humano pide commitear, o el `CLAUDE.md` del producto lo permite explícitamente | El `implementer` commitea en la rama de feature, un commit por cambio coherente (scope único, tests verdes) |
-| Nada de lo anterior | No se commitea; se deja el árbol listo y se reporta |
-| Push | Solo a la rama de feature y solo si el humano lo pidió |
+| Tarea del plan terminada con `<typecheck>`, `<lint>` y `<test>` verdes | El `implementer` commitea de inmediato en la rama de feature: un commit por tarea (scope único, mensaje de §1), con `git add <archivos explícitos>` tras revisar `git diff` |
+| Tarea a medias o rojo en alguna verificación | No se commitea; se termina la tarea o se reporta el bloqueo |
+| Cambio trivial (sin pipeline) o documentación del `archiver` | Commit directo, mismas reglas |
+| Push | Solo a la rama de feature; lo lanza el humano o lo autoriza en GATE 2 |
 | Prohibido siempre | Push directo a `develop`/`main`; `--force` (solo `--force-with-lease` tras confirmación explícita del humano); `--no-verify`; `git commit -a` sin revisar `git diff --cached` |
 
-**Cómo se verifica:** protección de rama en `develop`/`main` (PR obligatorio, checks requeridos, sin force-push); hooks de pre-commit (escaneo de secretos, validación de commits) nunca se saltan.
+**Cómo se verifica:** el `settings.json` del stack deja `git add`/`git commit` en `allow` y mantiene `git push`, `gh pr create` y merges en `ask`/`deny`; los hooks del core deniegan mensajes con atribución de IA, piden confirmación para `git commit -a` y bloquean después del commit si la identidad no es la local del repo. Protección de rama en `develop`/`main` (PR obligatorio, checks requeridos, sin force-push); hooks de pre-commit (escaneo de secretos, validación de commits) nunca se saltan.
 
 ## 5. Preguntas obligatorias
 
