@@ -131,7 +131,7 @@ En el PR real, cada `<símbolo>` se reemplaza por el comando resuelto. **Cómo s
 | 10 | Trailers de IA | grep de §9 sobre commits, título y body | Atribución de IA en commits o PR |
 | 11 | Plantilla de PR | validación de cabeceras del body | Cabecera `## ` distinta de las tres de §7 |
 
-Suite completa en cada PR; el filtrado por paquetes afectados solo sirve para acelerar `<build>`, nunca para saltar tests. Secretos de CI en environments del proveedor; nunca en archivos de configuración del monorepo, en cache remoto ni en logs. El stack instalado provee la plantilla concreta (`templates/ci.yml`).
+Suite completa en cada PR; el filtrado por paquetes afectados solo sirve para acelerar `<build>`, nunca para saltar tests. Cada job declara sus propios `permissions` mínimos (no se hereda del workflow: un job copiado suelto debe seguir siendo mínimo) y los datos del evento (título, body, shas, ramas) entran a los scripts por `env`, nunca interpolados dentro de `run`. Secretos de CI en environments del proveedor; nunca en archivos de configuración del monorepo, en cache remoto ni en logs. El stack instalado provee la plantilla concreta (`templates/ci.yml`).
 
 ## 9. Validación de commits y trailers
 
