@@ -1,0 +1,14 @@
+{
+  "name": "agentic-toolkit",
+  "version": "1.0.0",
+  "description": "Marketplace de plugins de Claude Code para desarrollo con SDD + Strict TDD sobre arquitectura Onion + Screaming.",
+  "owner": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
+  "plugins": [
+    {
+      "name": "sdd-tdd-orchestrator",
+      "description": "Pipeline SDD+TDD de 9 agentes y 2 gates humanos, 13 skills compartidas, comandos de sesion y guardrails por hooks. Agnostico de producto.",
+      "source": "./plugins/sdd-tdd-orchestrator",
+      "category": "development"
+    }
+  ]
+}
