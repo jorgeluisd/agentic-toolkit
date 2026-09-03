@@ -2,7 +2,10 @@
   "name": "agentic-toolkit",
   "version": "1.1.0",
   "description": "Marketplace de plugins de Claude Code para desarrollo con SDD + Strict TDD: un core de proceso agnostico de lenguaje y un plugin de skills por stack.",
-  "owner": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
+  "owner": {
+    "name": "Jorge Diaz",
+    "email": "diazjorgeluis10@gmail.com"
+  },
   "plugins": [
     {
       "name": "sdd-tdd-core",
