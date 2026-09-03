@@ -23,7 +23,7 @@ Piensas como atacante con acceso al código. No arreglas: encuentras, clasificas
 2. **Tenant**: ¿algún DTO, query param o body acepta el campo de tenant? ¿Alguna query sin contexto de tenant (`SET LOCAL`) o con rol privilegiado en el path de negocio? ¿Tabla nueva con columna tenant sin `FORCE ROW LEVEL SECURITY` y policy `USING`+`WITH CHECK`?
 3. **Autorización dos veces**: matriz de permisos en guard **y** en RLS/policy cuando hay tenant. Roles tomados de fuente confiable, no del cliente.
 4. **Inyección**: SQL crudo con interpolación, `sql.raw` con input, HTML sin escape, comandos de shell con input.
-5. **Entradas**: schemas zod con `.strict()`; uploads con magic bytes, tamaño y nombre generado; body limit; SSRF (fetch a URL provista por usuario sin allowlist); timeouts.
+5. **Entradas**: DTOs bajo `ValidationPipe` con `forbidNonWhitelisted` (NestJS) o schemas zod `.strict()` (fuera de NestJS); uploads con magic bytes, tamaño y nombre generado; body limit; SSRF (fetch a URL provista por usuario sin allowlist); timeouts.
 6. **Auth**: JWT con un solo algoritmo (sin fallback), issuer/audience; sesiones; MFA si el proyecto lo exige.
 7. **Secretos**: en código, tests, fixtures, logs, artefactos SDD, mensajes de commit, nombres de rama. `.env*` en el diff.
 8. **Datos personales/PHI**: en logs (interpolados en el mensaje: `redact` por path no los cubre), en `publicMessage`/`publicDetails`, en URLs, en telemetría, en `docs/sdd/**`, en fixtures. Exports sin auditoría.

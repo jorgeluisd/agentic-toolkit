@@ -114,7 +114,7 @@ Se loguea `message`; se serializa `publicMessage` + `publicDetails`. Envolver el
 
 | Situación | Status | Nota |
 |---|---|---|
-| Body inválido (zod `.strict()`) | 400 | `VALIDATION_FAILED` + `publicDetails.issues` sin valores del body |
+| Body inválido (class-validator / zod `.strict()`) | 400 | `VALIDATION_FAILED` + `publicDetails.issues` sin valores del body |
 | Sin sesión / token inválido | 401 | |
 | Tenant sin membresía | 403 | Único uso de 403 |
 | Recurso de otro tenant o inexistente | 404 | Nunca 403: confirma existencia |

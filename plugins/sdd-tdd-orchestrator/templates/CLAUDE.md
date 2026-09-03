@@ -54,7 +54,7 @@ Detalle y checks en la skill local de invariantes.
 Configuración de hooks del plugin: `.claude/sdd-hooks.env` (`SDD_PROD_MARKERS`, `SDD_BASE_BRANCH`, `SDD_TENANT_FIELD`).
 
 ## 7. Idioma
-Código e identificadores en inglés; docs, commits y comentarios en español neutro. Copy de usuario final: `<dialecto del producto>`.
+Código, identificadores y mensajes de commit en inglés; docs, ADRs, specs y comentarios en español neutro. Copy de usuario final: `<dialecto del producto>`.
 
 ## 8. Git y entrega
 Rama base `develop` (release a `main` con merge commit). Ramas `feat/<slug>`, `fix/<slug>`, `chore/<slug>`. Merge lo hace el humano en GATE 2. Deploy: staging automático; producción por promoción manual.

@@ -15,12 +15,12 @@ apps/api/src/
   contexts/<context>/          # un bounded context por carpeta; el nombre grita el negocio
     domain/                    # aggregates/ entities/ value-objects/ events/ repositories/ (interfaces = puertos) services/ errors/
     application/               # commands/ queries/ handlers/ ports/ read-models/ mappers/ (application→domain)
-    presentation/              # http/ (controllers, dtos/schemas zod, guards, pipes, mappers presentation→application)
+    presentation/              # http/ (controllers, dtos class-validator, guards, pipes, mappers presentation→application)
     infrastructure/            # persistence/ (drizzle schema, repos), messaging/, external/, mappers/ (infra→domain)
     <context>.module.ts        # composition root del contexto (tipo context-root)
   platform/                    # opcional: auth, config, provider de DB, health; transversal, sin dominio, no importa contextos
   app.module.ts, main.ts       # app-root
-packages/contracts/            # opcional: schemas zod + tipos compartidos web↔api; NO importa domain
+packages/contracts/            # opcional: tipos de request/response compartidos web↔api; NO importa domain
 apps/web/                      # solo importa packages/contracts; nunca domain/application
 ```
 

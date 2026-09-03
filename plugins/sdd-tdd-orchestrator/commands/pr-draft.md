@@ -12,7 +12,7 @@ Insumos: `02-spec.md` (RESUMEN y OBJETIVO), `06-verify.md` (tabla de checks y sh
 Plantilla EXACTA (no agregues secciones, no quites ninguna):
 
 ```
-<type>(<scope>): <resumen imperativo en español neutro, ≤ 72 caracteres>
+<type>(<scope>): <imperative summary in English, ≤ 72 characters>
 
 ## Qué cambia
 <máximo 3 líneas, en presente, qué hace el cambio>

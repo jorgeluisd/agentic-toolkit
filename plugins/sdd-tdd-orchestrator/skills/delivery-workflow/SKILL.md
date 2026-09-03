@@ -1,6 +1,6 @@
 ---
 name: delivery-workflow
-description: "Única fuente de verdad de commits, ramas, PR y CI: type(scope) en español neutro sin trailers de IA, identidad verificada, preguntas obligatorias, squash a develop y merge commit a main, PR de tres secciones, CI en orden y deploy por promoción. Usar cuando se commitea, se abre un PR o se toca CI."
+description: "Única fuente de verdad de commits, ramas, PR y CI: type(scope) en inglés sin trailers de IA, identidad verificada, preguntas obligatorias, squash a develop y merge commit a main, PR de tres secciones, CI en orden y deploy por promoción. Usar cuando se commitea, se abre un PR o se toca CI."
 ---
 
 # Entrega: commits, ramas, PR y CI
@@ -10,9 +10,9 @@ Esta skill es la **única fuente de verdad** de cómo se entrega código. Ningun
 ## 1. Formato de commit
 
 ```
-<type>(<scope>): <resumen imperativo en español neutro, ≤ 72 caracteres, sin punto final>
+<type>(<scope>): <imperative summary in English, ≤ 72 characters, no trailing period>
 
-<body opcional: qué cambia y por qué, en español neutro, líneas ≤ 72>
+<optional body: what changes and why, in English, lines ≤ 72>
 ```
 
 | type | Cuándo |
@@ -28,7 +28,7 @@ Esta skill es la **única fuente de verdad** de cómo se entrega código. Ningun
 | `perf` | Mejora medible de rendimiento sin cambio funcional |
 | `revert` | Revierte un commit; body con el hash revertido |
 
-`scope` = carpeta del bounded context (`orders`, `billing`, `identity`) o uno transversal: `kernel` (shared-kernel), `web` (`apps/web`), `infra`, `docs`, `ci`, `deps`. Un commit toca un scope; si toca dos contextos, son dos commits. Ejemplos: `feat(orders): permitir cancelar un pedido antes del despacho` · `chore(deps): fijar next a 15.4.2 y zod a 3.25.7`. Idioma: español neutro (tú/usted, imperativo); identificadores de código en inglés se escriben tal cual (`Money.add`, `orders.order.placed`). **Cómo se verifica:** commitlint (§9) con `type-enum`, `scope-empty: never`, `header-max-length: 72`, `subject-full-stop: never`.
+`scope` = carpeta del bounded context (`orders`, `billing`, `identity`) o uno transversal: `kernel` (shared-kernel), `web` (`apps/web`), `infra`, `docs`, `ci`, `deps`. Un commit toca un scope; si toca dos contextos, son dos commits. Ejemplos: `feat(orders): allow cancelling an order before dispatch` · `chore(deps): pin next to 15.4.2 and zod to 3.25.7`. Idioma del mensaje de commit: **inglés** (imperativo, minúscula inicial); docs, ADRs y specs siguen en español neutro. **Cómo se verifica:** commitlint (§9) con `type-enum`, `scope-empty: never`, `header-max-length: 72`, `subject-full-stop: never`.
 
 ## 2. Sin trailers ni menciones de IA
 
@@ -159,7 +159,7 @@ commits:
 ## 11. Checklist
 
 - [ ] ¿`git config --local user.name/user.email` verificados antes del primer commit?
-- [ ] ¿Cada commit `type(scope): resumen` en español neutro, ≤ 72, scope único?
+- [ ] ¿Cada commit `type(scope): summary` en inglés, ≤ 72, scope único?
 - [ ] ¿`git log -1 --format='%an <%ae>%n%B' | grep -iE 'co-authored-by|claude-session|generated with|anthropic'` vacío tras cada commit?
 - [ ] ¿Se preguntó "¿misma rama o nueva?" y "¿abro el PR?" y se esperó respuesta?
 - [ ] ¿Rama `feat|fix|chore/<slug>` desde `develop`; sin push a `develop`/`main`, sin `--force`, sin `--no-verify`? ¿Release `develop` → `main` con merge commit (nunca squash)?

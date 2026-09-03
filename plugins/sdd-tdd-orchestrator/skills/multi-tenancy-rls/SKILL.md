@@ -42,19 +42,21 @@ Todo acceso a tablas con tenant pasa por aquí; los repos reciben `tx` y no abre
 ## 4. El pipe rechaza tenant en el DTO
 
 ```ts
+// main.ts — ValidationPipe global de NestJS (class-validator)
+app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: false } }));
+
+// Pipe adicional: rechaza el campo de tenant aunque algún DTO lo declare por error
 const TENANT_KEYS = ['tenantId', 'tenant_id'];   // los nombres declarados en el proyecto
-export class ZodValidationPipe implements PipeTransform {
-  constructor(private readonly schema: z.ZodTypeAny) {}
+@Injectable()
+export class RejectTenantInBodyPipe implements PipeTransform {
   transform(value: unknown) {
-    if (value && typeof value === 'object' && TENANT_KEYS.some((k) => k in value)) throw new BadRequestException({ code: 'TENANT_IN_BODY' });
-    const parsed = this.schema.safeParse(value);           // schemas con .strict(): cualquier clave desconocida → 400
-    if (!parsed.success) throw new BadRequestException({ code: 'VALIDATION_FAILED', publicDetails: { issues: parsed.error.issues.map((i) => i.path.join('.')) } });
-    return parsed.data;
+    if (value && typeof value === 'object' && TENANT_KEYS.some((k) => k in (value as object))) throw new BadRequestException({ code: 'TENANT_IN_BODY' });
+    return value;
   }
 }
 ```
 
-`.strict()` ya rechaza `tenantId` si el schema no lo declara; el check explícito cubre el caso en que alguien lo declare. El test de arquitectura (§9) garantiza que ningún schema lo declare.
+`forbidNonWhitelisted` ya rechaza `tenantId` si el DTO no lo declara; el pipe explícito cubre el caso en que alguien lo declare. El test de arquitectura (§9) garantiza que ningún DTO lo declare. Fuera de NestJS (Server Actions, Edge Functions) el equivalente es zod `.strict()`.
 
 ## 5. Policy RLS
 

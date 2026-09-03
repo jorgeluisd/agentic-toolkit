@@ -105,14 +105,21 @@ export class EnqueueOrderConfirmation implements IEventHandler<OrderPlaced> {
 
 ## 6. Controllers finos
 
+Regla de validación de borde: **en NestJS, class-validator + class-transformer** con `ValidationPipe` global `{ whitelist: true, forbidNonWhitelisted: true, transform: true, enableImplicitConversion: false }`. Fuera de NestJS (Server Actions de Next.js, Edge Functions, scripts) la validación es **zod `.strict()`** (ver `frontend-next-react`). No mezclar los dos en la misma capa.
+
 ```ts
-export const PlaceOrderSchema = z.object({
-  customerId: z.string().uuid(),
-  lines: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().positive() })).min(1),
-}).strict();   // sin .strict() zod descarta claves desconocidas en silencio (un tenantId del body pasaría sin ruido)
+class OrderLineDto {
+  @IsUUID() productId!: string;
+  @IsInt() @IsPositive() quantity!: number;
+}
+export class PlaceOrderDto {
+  @IsUUID() customerId!: string;
+  @ValidateNested({ each: true }) @Type(() => OrderLineDto) @ArrayMinSize(1) lines!: OrderLineDto[];
+  // sin campo de tenant: forbidNonWhitelisted rechaza con 400 cualquier clave no declarada, tenantId incluido
+}
 
 @Post()
-async place(@Body(new ZodValidationPipe(PlaceOrderSchema)) dto: PlaceOrderDto, @CurrentTenant() ctx: TenantContext) {
+async place(@Body() dto: PlaceOrderDto, @CurrentTenant() ctx: TenantContext) {
   const result = await this.commandBus.execute<PlaceOrderCommand, Result<{ id: string }, DomainError>>(OrderRequestMapper.toPlaceCommand(dto, ctx));
   return unwrapOrThrow(result);
 }
@@ -139,7 +146,7 @@ Nunca `new PlaceOrderCommand({ tenantId, ...dto })`: el spread acopla el DTO al 
 
 ## 8. `packages/contracts`
 
-- Schemas zod + tipos derivados con `z.infer`; única frontera web↔api. **No importa `domain`** ni `domain` importa `contracts`; `presentation` mapea entre ambos.
+- Tipos e interfaces de request/response compartidos web↔api (derivados de los DTOs de la API, sin decoradores ni dependencias de NestJS); única frontera web↔api. **No importa `domain`** ni `domain` importa `contracts`; `presentation` mapea entre ambos. Los schemas zod del web (formularios, Server Actions) se escriben contra estos tipos con `satisfies`.
 - Valida forma y formato, no reglas de negocio ("no puede pedir si está bloqueado" vive en el aggregate).
 - Catálogos duplicados a propósito (`OrderStatus` en contracts y en domain) con un **test de consistencia** que los compara.
 - Cambiar la forma de un DTO es un cambio de frontera: expand (campo nuevo opcional) → migrar consumidores → contract (retirar el viejo).
@@ -165,6 +172,6 @@ Nunca `new PlaceOrderCommand({ tenantId, ...dto })`: el spread acopla el DTO al 
 - [ ] ¿Puerto = interface + `Symbol`, cableado en `<context>.module.ts`?
 - [ ] ¿`eventName` con `{context}.{aggregate}.{verbo_pasado}`; reacciones cross-context por evento?
 - [ ] ¿Jobs idempotentes, con `tenantId` + `traceId`, backoff, en el worker, por tenant?
-- [ ] ¿Controller: zod `.strict()` → mapper → bus → `unwrapOrThrow`?
+- [ ] ¿Controller: DTO class-validator (whitelist + forbidNonWhitelisted) → mapper → bus → `unwrapOrThrow`?
 - [ ] ¿Mappers solo en las 3 fronteras; `toDomain` con `rehydrate`; sin spread tras el tenant?
 - [ ] ¿Test del handler con fakes de puertos (repo en memoria, `TimeProvider` fijo, `IdGenerator` secuencial, outbox espía) que asertan `ok` y el `code` del error?

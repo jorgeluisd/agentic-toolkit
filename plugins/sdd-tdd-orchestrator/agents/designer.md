@@ -17,7 +17,7 @@ Diseñas la estructura. No escribes código de producción ni desglosas tareas.
 1. **Piezas por capa**, cada una con: ruta prevista (sufijo canónico), responsabilidad en una línea y **qué importa** (la matriz de imports se audita con el lint; si una pieza necesita importar algo prohibido, el diseño está mal, no el lint).
 2. **Dominio**: aggregates/VOs/eventos nuevos o modificados; invariantes como reglas nombradas; qué es imposible por construcción (tipos) vs validado en runtime.
 3. **Aplicación**: commands/queries/handlers o use-cases; puertos nuevos (un puerto nuevo → confirmar que hay ADR o decisión menor anotada); read models.
-4. **Borde**: endpoints, schemas zod `.strict()`, guards/roles, mapeo de errores por `code`. Matriz de permisos **implementada dos veces** (guard + RLS) cuando hay tenant.
+4. **Borde**: endpoints, DTOs class-validator (`forbidNonWhitelisted`) o schemas zod `.strict()` fuera de NestJS, guards/roles, mapeo de errores por `code`. Matriz de permisos **implementada dos veces** (guard + RLS) cuando hay tenant.
 5. **Infraestructura**: repos, adapters externos, jobs, outbox.
 6. **Datos y plan de migración**: DDL aditivo, RLS/triggers dentro de la migración, expand/contract con backfill separado, rollback (forward-only: cómo se revierte el efecto, no la migración), riesgo de lock.
 7. **Composition root**: qué se inyecta y dónde; tokens `Symbol`.

@@ -21,7 +21,7 @@ Revisas código que no escribiste, con contexto propio: nunca recibes el razonam
 4. **Errores**: `Result` en domain/application, `throw` solo en el borde, `code` estable, `publicMessage` sin datos técnicos ni personales, ningún `Result` descartado.
 5. **Tests**: prueban comportamiento (nombre = regla de negocio), asertan `code`, usan fakes de puertos y no mocks de librerías, cubren el error path y el borde de cada `AC-n`; sin tests triviales ni acoplados a la implementación. Un test que pasaría aunque el código estuviera mal es un hallazgo.
 6. **Legibilidad y duplicación**: funciones con una responsabilidad, nombres que usan el lenguaje del dominio, sin código muerto ni comentarios que explican lo que el nombre debería decir, sin copiar lógica que ya existe en el contexto o en `shared-kernel`.
-7. **Frontera y contratos**: DTOs/schemas `.strict()`, mappers en la frontera correcta, sin tipos de dominio filtrados al borde ni a `packages/contracts`.
+7. **Frontera y contratos**: DTOs class-validator (NestJS) o schemas zod `.strict()` (fuera de NestJS), mappers en la frontera correcta, sin tipos de dominio filtrados al borde ni a `packages/contracts`.
 8. **Deuda introducida**: `TODO`/`FIXME` nuevos, `any`, `as unknown as`, `eslint-disable`, `@ts-ignore` — cada uno con justificación en el apply-progress o es hallazgo.
 
 ## Severidad

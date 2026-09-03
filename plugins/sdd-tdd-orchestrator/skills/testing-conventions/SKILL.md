@@ -38,8 +38,8 @@ export default defineConfig({
   test: {
     environment: 'node', include: ['src/**/*.spec.ts'], exclude: ['**/*.integration.spec.ts', '**/*.e2e-spec.ts'],
     coverage: { provider: 'v8', include: ['src/**'], thresholds: {
-      'src/contexts/**/domain/**': { lines: 95, branches: 90 }, 'src/contexts/**/application/**': { lines: 85 },
-      'src/contexts/**/presentation/**': { lines: 70 }, 'src/contexts/**/infrastructure/**': { lines: 60 } } },
+      'src/contexts/**/domain/**': { lines: 100, branches: 100 }, 'src/contexts/**/application/**': { lines: 90 },
+      'src/contexts/**/presentation/**': { lines: 80 }, 'src/contexts/**/infrastructure/**': { lines: 80 } } },
   },
 });
 // apps/api/vitest.integration.config.ts — integración + e2e (3 + 4)
@@ -56,10 +56,10 @@ export default defineConfig({
 
 | Capa | Líneas | Branches | Cómo se alcanza |
 |---|---|---|---|
-| `domain/` | 95 % | 90 % | Un caso válido y **cada** inválido por invariante; cada método de comando: estado + eventos |
-| `application/` | 85 % | — | Happy path + cada error path del handler con fakes |
-| `presentation/` | 70 % | — | Guards/pipes/mappers en unit; e2e solo en flujos críticos |
-| `infrastructure/` | 60 % | — | Tests de integración del repo (no se cuentan en `pnpm test`) |
+| `domain/` | 100 % | 100 % | Un caso válido y **cada** inválido por invariante; cada método de comando: estado + eventos |
+| `application/` | 90 % | — | Happy path + cada error path del handler con fakes |
+| `presentation/` | 80 % | — | Guards/pipes/mappers en unit; e2e solo en flujos críticos |
+| `infrastructure/` | 80 % | — | Tests de integración del repo (no se cuentan en `pnpm test`) |
 
 Los thresholds viven en la config (§2), no en un documento: `vitest run --coverage` falla el CI si bajan. Un "85 % global" no sirve: esconde un dominio al 40 %.
 

@@ -13,7 +13,7 @@ Cada regla trae su verificación (`cómo se verifica`). Si una regla no puede ve
 2. **Secretos**: solo en env validado al arrancar; jamás en código, tests, logs, commits, artefactos SDD ni memoria de sesión.
 3. **Webhooks**: firma HMAC sobre raw body con `timingSafeEqual` antes de tocar el payload; luego encolar.
 4. **PII/PHI**: nunca en logs, errores públicos, URLs, telemetría ni artefactos de proceso (§8).
-5. **Inputs**: zod `.strict()` en el borde, queries parametrizadas, uploads por magic bytes, límites y timeouts.
+5. **Inputs**: validación de borde que rechace claves desconocidas (NestJS: class-validator con `whitelist` + `forbidNonWhitelisted`; fuera de NestJS: zod `.strict()`), queries parametrizadas, uploads por magic bytes, límites y timeouts.
 
 ## 2. OWASP → mitigación mecánica
 
@@ -21,7 +21,7 @@ Cada regla trae su verificación (`cómo se verifica`). Si una regla no puede ve
 |---|---|---|
 | A01 Broken Access Control | Guard de rol + RLS `FORCE` + `TenantContext.run` | `pnpm test:integration` incluye cross-tenant y el SQL de `pg_class` (`multi-tenancy-rls` §8) |
 | A02 Cryptographic Failures | Secretos en env (`EnvSchema`), TLS, hash de contraseñas `argon2id`, clase alta con envelope (§9) | `gitleaks detect --no-git -v` limpio; `grep -rnE "md5\(|sha1\(|createHash\('(md5|sha1)'" apps packages` vacío |
-| A03 Injection | Drizzle parametriza (`sql\`\`` es binding); zod `.strict()`; React escapa; sin `dangerouslySetInnerHTML` con datos de usuario | `grep -rn "sql.raw(" apps/api/src` vacío o cada uso revisado; `grep -rn dangerouslySetInnerHTML apps/web/src` vacío |
+| A03 Injection | Drizzle parametriza (`sql\`\`` es binding); class-validator `forbidNonWhitelisted` / zod `.strict()`; React escapa; sin `dangerouslySetInnerHTML` con datos de usuario | `grep -rn "sql.raw(" apps/api/src` vacío o cada uso revisado; `grep -rn dangerouslySetInnerHTML apps/web/src` vacío |
 | A04 Insecure Design | Invariantes en `domain/`; la spec SDD incluye escenarios de abuso (doble envío, replay, enumeración) | Sección "Abuso" en `docs/sdd/<feature>/spec.md` con un test por escenario |
 | A05 Security Misconfiguration | helmet + CSP + HSTS + `Referrer-Policy`; CORS allowlist; `FORCE ROW LEVEL SECURITY`; `.strict()` | e2e de headers (§7); `grep -rn "origin: '\*'\|origin: true" apps/api/src` vacío |
 | A06 Vulnerable Components | `pnpm audit --audit-level=high`, `save-exact`, `minimum-release-age`, scripts bloqueados | CI falla en `audit`; `grep -REn '"\^|"~' --include=package.json .` vacío |
@@ -86,7 +86,7 @@ La firma se calcula sobre el **body crudo**, nunca sobre el JSON re-serializado.
 
 | Regla | Config / código | Cómo se verifica |
 |---|---|---|
-| zod `.strict()` en todo schema de borde (body, query, params, Server Actions) | El default de zod **descarta** claves desconocidas en silencio; `.strict()` las rechaza con 400 | `grep -rLE "\.strict\(\)" apps/api/src/contexts/*/presentation/http/**/*.schema.ts` vacío |
+| Rechazo de claves desconocidas en todo borde | NestJS: `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })` global + DTOs con decoradores. Fuera de NestJS: zod `.strict()` (el default de zod **descarta** claves desconocidas en silencio) | `grep -n "forbidNonWhitelisted: true" apps/api/src/main.ts`; `grep -rLE "\.strict\(\)" apps/web/**/*.schema.ts` vacío |
 | Body size limit y uploads | `app.use(json({ limit: '1mb' }))` (y `urlencoded`); `multer` con `limits.fileSize`; `fileTypeFromBuffer` (magic bytes, no `mimetype` del cliente); allowlist de tipos; nombre = UUID; bucket privado; URL firmada con expiración | e2e: body de 2 MB → 413; unit: `.exe` renombrado `.png` → `UPLOAD_TYPE_NOT_ALLOWED` |
 | Timeouts salientes | `AbortSignal.timeout(ms)` en todo fetch; reintentos solo en jobs | Sin `fetch(` fuera de `safeFetch` |
 | Queries / hojas de cálculo | Drizzle query builder o `sql\`\`` (binding); `sql.raw` solo con literales del código. Importaciones: límite de filas/celdas, sin evaluar fórmulas, en un job | grep de A03; fixture con 100k filas → `IMPORT_TOO_LARGE` |
@@ -164,7 +164,7 @@ Exports con PII: rol explícito, auditados (`actor`, `tenantId`, filtro, `rowCou
 - [ ] ¿Ningún secreto en diff, tests, docs ni evidencia; env nuevo en `EnvSchema` + `.env.example`; gitleaks limpio?
 - [ ] ¿JWT con un algoritmo, `iss`/`aud`; rutas públicas con `@Public()` enumeradas en test?
 - [ ] ¿Webhook: HMAC sobre raw body, `timingSafeEqual` con check de longitud, inbox idempotente, e2e firma inválida → 401?
-- [ ] ¿Schemas `.strict()`; body limit; uploads por magic bytes; `safeFetch`; sin `sql.raw` con datos de usuario; helmet/CSP/HSTS/Referrer-Policy, CORS allowlist y throttle con tests?
+- [ ] ¿DTOs con `forbidNonWhitelisted` (NestJS) o schemas `.strict()` (fuera); body limit; uploads por magic bytes; `safeFetch`; sin `sql.raw` con datos de usuario; helmet/CSP/HSTS/Referrer-Policy, CORS allowlist y throttle con tests?
 - [ ] ¿PII fuera de logs, errores, URLs, telemetría, `docs/sdd/**`, commits, ramas, fixtures? ¿Exports auditados?
 - [ ] ¿Dato de clase alta con envelope + blind index + audit hash-chain?
 - [ ] ¿`pnpm audit` sin high/critical; versiones exactas; lockfile; sin scripts aprobados sin OK; nada tocó producción ni apunta a ella?
