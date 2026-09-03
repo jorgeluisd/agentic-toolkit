@@ -2,23 +2,23 @@
 # Funciones comunes de los hooks. Se hace `source` desde cada script.
 # Sin `set -e`: un grep que no matchea devuelve 1 y abortaría el hook.
 
-# Configuración: primero variables de entorno exportadas por el harness a partir
-# del userConfig del plugin (CLAUDE_PLUGIN_OPTION_<KEY>); después, si existe,
-# el archivo del proyecto .claude/sdd-hooks.env (KEY=VALUE, una por línea), que
-# funciona aunque el harness no exporte las opciones.
+# Configuración: el archivo del proyecto .claude/sdd-hooks.env (KEY=VALUE, una
+# por línea) manda; el userConfig del plugin (CLAUDE_PLUGIN_OPTION_<KEY>) es el
+# fallback, pensado para instalaciones a nivel de usuario compartidas por varios
+# repos, donde cada repo declara sus propios valores.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 if [ -f "$PROJECT_DIR/.claude/sdd-hooks.env" ]; then
   # shellcheck disable=SC1091
   set -a; . "$PROJECT_DIR/.claude/sdd-hooks.env"; set +a
 fi
-PROD_MARKERS="${CLAUDE_PLUGIN_OPTION_PROD_MARKERS:-${SDD_PROD_MARKERS:-}}"
-BASE_BRANCH="${CLAUDE_PLUGIN_OPTION_BASE_BRANCH:-${SDD_BASE_BRANCH:-develop}}"
-TENANT_FIELD="${CLAUDE_PLUGIN_OPTION_TENANT_FIELD:-${SDD_TENANT_FIELD:-}}"
+PROD_MARKERS="${SDD_PROD_MARKERS:-${CLAUDE_PLUGIN_OPTION_PROD_MARKERS:-}}"
+BASE_BRANCH="${SDD_BASE_BRANCH:-${CLAUDE_PLUGIN_OPTION_BASE_BRANCH:-develop}}"
+TENANT_FIELD="${SDD_TENANT_FIELD:-${CLAUDE_PLUGIN_OPTION_TENANT_FIELD:-}}"
 # Comentarios en código: bloque contiguo máximo y porcentaje máximo de líneas comentadas por archivo.
-COMMENT_MAX_BLOCK="${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_BLOCK:-${SDD_COMMENT_MAX_BLOCK:-4}}"
-COMMENT_MAX_PCT="${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_PCT:-${SDD_COMMENT_MAX_PCT:-15}}"
+COMMENT_MAX_BLOCK="${SDD_COMMENT_MAX_BLOCK:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_BLOCK:-4}}"
+COMMENT_MAX_PCT="${SDD_COMMENT_MAX_PCT:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_PCT:-15}}"
 # Regex que reconoce una corrida de tests (evidencia TDD). Default multi-stack.
-TEST_CMD_RE="${CLAUDE_PLUGIN_OPTION_TEST_CMD_RE:-${SDD_TEST_CMD_RE:-}}"
+TEST_CMD_RE="${SDD_TEST_CMD_RE:-${CLAUDE_PLUGIN_OPTION_TEST_CMD_RE:-}}"
 [ -z "$TEST_CMD_RE" ] && TEST_CMD_RE='(vitest|jest|mocha|(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test|turbo[[:space:]]+(run[[:space:]]+)?test|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|$)|artisan[[:space:]]+test|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)'
 # is_test_run <comando>: 0 si alguno de los segmentos del comando ejecuta tests.
 # Quita cadenas entre comillas y descarta segmentos cuyo primer verbo es de
