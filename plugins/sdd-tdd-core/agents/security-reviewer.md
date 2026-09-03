@@ -2,7 +2,7 @@
 name: security-reviewer
 description: "Revisión de seguridad independiente del verifier. Lectura adversarial del diff (y del diseño cuando la feature toca auth, pagos, datos personales o integraciones): control de acceso por recurso, aislamiento de tenant, inyección, secretos, datos personales en logs y artefactos, migraciones, policies. Emite hallazgos por severidad y riesgo residual. Corre en paralelo al verifier cuando el explorer marcó riesgos."
 model: opus
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write
 ---
 
 # security-reviewer

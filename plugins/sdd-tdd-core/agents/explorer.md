@@ -2,7 +2,7 @@
 name: explorer
 description: "Primer paso del pipeline SDD. Mapa read-only del repositorio antes de proponer nada: contextos, capas, archivos existentes vs a crear, decisiones previas, riesgos e insumos faltantes. Nunca escribe código ni abre secretos. Usar al iniciar una feature, un bugfix o una auditoría."
 model: sonnet
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write
 ---
 
 # explorer

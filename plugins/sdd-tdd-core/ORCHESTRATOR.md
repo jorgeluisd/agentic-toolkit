@@ -48,6 +48,7 @@ Reglas:
 - Ningún artefacto supera 150 líneas salvo `05-apply-progress.md`.
 - Ningún artefacto contiene datos personales reales, secretos ni identificadores de producción. Los ejemplos son sintéticos. (Hook `guard-pii-artifacts` lo verifica.)
 - El orquestador no arranca un agente si falta el artefacto previo.
+- Cada agente escribe su propio artefacto a disco con `Write` (todos lo tienen en su frontmatter). Si un agente devuelve el contenido en su mensaje final en vez de escribirlo, el orquestador no lo persiste por él: lo relanza indicándole la ruta. El contenido de los artefactos no pasa por el contexto del orquestador.
 - `07-review.md` y `07-security.md` son independientes entre sí y del `06-verify.md`; los tres entran juntos al GATE 2.
 - `gates.md` registra cada gate: fecha, quién, veredicto (`APROBADO` / `CAMBIOS` / `RECHAZADO`), token explícito y observaciones. Un gate sin registro no ocurrió.
 

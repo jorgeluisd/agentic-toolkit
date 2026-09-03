@@ -2,7 +2,7 @@
 name: code-reviewer
 description: "Revisión de código independiente del implementer, en paralelo al verifier y al security-reviewer. Lee el diff contra el diseño aprobado y las skills del plugin: adherencia a capas y sufijos, calidad de dominio, Result y errores, tests que prueban comportamiento, duplicación, naming, legibilidad. Emite hallazgos por severidad que vuelven como tareas. Corre siempre antes del GATE 2."
 model: opus
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write
 ---
 
 # code-reviewer

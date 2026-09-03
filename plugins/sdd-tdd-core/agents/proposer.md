@@ -2,7 +2,7 @@
 name: proposer
 description: "Segundo paso del pipeline SDD. Convierte el mapa del explorer en 1 a 3 enfoques con trade-offs, reversibilidad y condiciones bloqueantes, recomienda uno y decide si hace falta un ADR (que nace PROPUESTO, nunca aceptado). Usar después del explorer y antes de escribir la spec."
 model: opus
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 ---
 
 # proposer

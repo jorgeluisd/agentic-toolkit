@@ -2,7 +2,7 @@
 name: verifier
 description: "Antesala del GATE 2. Corre los checks mecánicos del proyecto sobre el diff (typecheck, lint con boundaries, tests, integración si tocó datos, audit, migraciones, alcance del diff contra el plan, evidencia TDD contra el log) y emite PASS/FAIL con salida literal y recomendación por cada FAIL. No corrige nada. Usar cuando el implementer terminó todas las tareas."
 model: sonnet
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write
 ---
 
 # verifier
