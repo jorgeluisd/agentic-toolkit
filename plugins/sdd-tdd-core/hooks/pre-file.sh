@@ -55,6 +55,22 @@ if [ -n "$TENANT_FIELD" ] && printf '%s' "$rel" | grep -Eq '(presentation/.*(dto
 - El contenido destinado a $rel declara el campo de tenant '$TENANT_FIELD'. El tenant viene del contexto de auth, nunca del body/DTO."
 fi
 
+# Comentarios en código fuente: el código debe explicarse solo. Se mide sobre el archivo tal como
+# quedaría (contenido completo en Write; para Edit/MultiEdit, el archivo actual con el reemplazo aplicado
+# no está disponible aquí, así que se mide solo el fragmento nuevo).
+if printf '%s' "$rel" | grep -Eq '\.(ts|tsx|js|jsx|mjs|php|py|go|rs|kt|java|swift|cs)$' \
+   && ! printf '%s' "$rel" | grep -Eq '(\.d\.ts$|\.config\.[a-z]+$|(^|/)(migrations?|drizzle|database/migrations|alembic)/|\.(spec|test|integration\.spec|e2e-spec)\.[a-z]+$|(^|/)scripts?/|(^|/)\.claude/)'; then
+  stats="$(printf '%s\n' "$content" | awk -v maxblock="$COMMENT_MAX_BLOCK" '
+    function is_comment(l) { return (l ~ /^[[:space:]]*(\/\/|#|\*|\/\*|<!--|--[[:space:]])/ && l !~ /^[[:space:]]*#!/ && l !~ /^[[:space:]]*#\[/) }
+    { total++; if (is_comment($0)) { c++; run++; if (run > longest) longest = run } else if ($0 !~ /^[[:space:]]*$/) { run = 0 } }
+    END { pct = (total > 0) ? int(100 * c / total) : 0; printf "%d %d %d", longest, pct, total }')"
+  longest="${stats%% *}"; rest="${stats#* }"; pct="${rest%% *}"; total="${rest#* }"
+  if [ "$total" -ge 12 ] && { [ "$longest" -gt "$COMMENT_MAX_BLOCK" ] || [ "$pct" -gt "$COMMENT_MAX_PCT" ]; }; then
+    problems="$problems
+- Demasiado comentario en $rel: bloque más largo de $longest líneas (máx. $COMMENT_MAX_BLOCK), $pct % de líneas comentadas (máx. $COMMENT_MAX_PCT %). El código debe explicarse con nombres, tipos y tests; un comentario solo justifica un porqué que el código no puede expresar (decisión con ADR/issue, workaround con condición de retiro). Si un bloque necesita explicación, extrae una función con ese nombre. Sin código comentado ni banners de sección."
+  fi
+fi
+
 if [ -n "$problems" ]; then
   deny "GUARDRAIL antes de escribir (nada tocó el disco):$problems"
 fi

@@ -21,6 +21,7 @@ Escribes código. Una tarea por vez. No apruebas nada, no decides diseño, no co
 5. Checks locales al cerrar la tarea: typecheck, lint (boundaries) y los tests de los archivos tocados. Los comandos son los declarados en la sección "Comandos" del `CLAUDE.md` del proyecto.
 6. Registra en `05-apply-progress.md` (plantilla abajo). El hook `tdd-evidence` registra automáticamente cada corrida de tests en `tdd-evidence.log`; tu tabla referencia sus timestamps.
 7. Datos: fixtures sintéticos; nunca un dato personal real ni un secreto en código, tests o artefactos.
+8. **El código grita; los comentarios callan.** Un comentario existe solo para el *porqué* que el código no puede expresar: una decisión no obvia (con su ADR o issue), un workaround con la condición para retirarlo, una restricción externa. Nunca para el *qué* (eso lo dicen el nombre de la función, el tipo y el test), nunca banners de sección, nunca código comentado, nunca docblocks que repiten la firma. Si un bloque necesita un comentario para entenderse, extrae una función con ese nombre y elimina el comentario. Máximo por defecto: bloques de comentario de 4 líneas y 15 % de líneas comentadas por archivo (el hook `pre-file` lo aplica; el `code-reviewer` juzga el resto).
 
 ## Plantilla — `05-apply-progress.md` (una sección por tarea, se acumula)
 ```

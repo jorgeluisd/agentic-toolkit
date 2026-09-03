@@ -3,9 +3,20 @@
   "displayName": "SDD/TDD Core",
   "version": "1.0.0",
   "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje: 10 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos en docs/sdd/, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
-  "author": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
+  "author": {
+    "name": "Jorge Diaz",
+    "email": "diazjorgeluis10@gmail.com"
+  },
   "license": "UNLICENSED",
-  "keywords": ["sdd", "tdd", "orchestrator", "agents", "gates", "security", "guardrails"],
+  "keywords": [
+    "sdd",
+    "tdd",
+    "orchestrator",
+    "agents",
+    "gates",
+    "security",
+    "guardrails"
+  ],
   "userConfig": {
     "prod_markers": {
       "type": "string",
@@ -33,6 +44,20 @@
       "title": "Regex de comandos de test (evidencia TDD)",
       "description": "Expresion regular extendida que reconoce una corrida de tests en un comando de shell. Vacio = default multi-stack (vitest, jest, tsc, phpunit, pest, artisan test, pytest, go test, cargo test, dotnet test, mvn/gradle test).",
       "default": "",
+      "required": false
+    },
+    "comment_max_block": {
+      "type": "string",
+      "title": "Comentarios: bloque contiguo maximo (lineas)",
+      "description": "Un bloque de comentario mas largo que esto bloquea la escritura del archivo de codigo. El codigo debe explicarse con nombres, tipos y tests; los comentarios solo justifican un porque. Default 4.",
+      "default": "4",
+      "required": false
+    },
+    "comment_max_pct": {
+      "type": "string",
+      "title": "Comentarios: porcentaje maximo de lineas por archivo",
+      "description": "Porcentaje de lineas comentadas a partir del cual se bloquea la escritura de un archivo de codigo (tests, migraciones, configs y scripts quedan exentos). Default 15.",
+      "default": "15",
       "required": false
     }
   }

@@ -26,7 +26,7 @@ Esta skill es agnóstica de lenguaje: los comandos aparecen como símbolos y el 
 | 3 | **RED** | Un solo test que describe el comportamiento ausente. Cero código de producción antes | `<test:file> <archivo> "<caso>"` | **FAIL por la razón correcta** (§2) |
 | 4 | **GREEN** | El mínimo código que hace pasar ese test. Sin generalizar, sin adornos | mismo comando de RED | PASS |
 | 5 | **TRIANGULATE** | Casos extra que fuerzan la generalización (§4); cada uno pasa por su propio RED→GREEN | mismo comando, un caso por corrida | FAIL → PASS por caso |
-| 6 | **REFACTOR** | Nombres, duplicación, capa correcta. Sin cambiar comportamiento | `<test:file> <archivo>` | PASS (toda la suite del archivo) |
+| 6 | **REFACTOR** | Nombres, duplicación, capa correcta, **comentarios fuera** (solo queda el porqué que el código no puede decir; lo demás se convierte en un nombre mejor o en una función extraída). Sin cambiar comportamiento | `<test:file> <archivo>` | PASS (toda la suite del archivo) |
 | 7 | **Evidence** | Completar la tabla del apply-progress con los timestamps del log (§6) | `grep "<timestamp>" docs/sdd/<feature>/tdd-evidence.log` | Cada fila referencia una línea real del log |
 
 Un ciclo por comportamiento; una tarea suele tener varios ciclos. GREEN y TRIANGULATE corren **solo el test dirigido**: la suite completa es del `verifier`, no del ciclo interno.
