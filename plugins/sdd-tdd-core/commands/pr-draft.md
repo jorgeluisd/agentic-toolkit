@@ -9,13 +9,13 @@ $ARGUMENTS
 
 Insumos: `02-spec.md` (RESUMEN y OBJETIVO), `06-verify.md` (tabla de checks y sha), `05-apply-progress.md` (solo para confirmar el alcance). Carga la skill `delivery-workflow`.
 
-Plantilla EXACTA (no agregues secciones, no quites ninguna):
+Plantilla EXACTA (no agregues secciones, no quites ninguna). Título en inglés; cuerpo en español neutro y breve: ≤ 8 líneas en total.
 
 ```
 <type>(<scope>): <imperative summary in English, ≤ 72 characters>
 
 ## Qué cambia
-<máximo 3 líneas, en presente, qué hace el cambio>
+<1–3 líneas, en presente, qué hace el cambio>
 
 ## Por qué
 <una línea; omite la sección solo si es evidente por el título>

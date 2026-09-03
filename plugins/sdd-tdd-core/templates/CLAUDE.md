@@ -58,7 +58,7 @@ Estos son los símbolos que usan `strict-tdd`, `delivery-workflow`, el `verifier
 Configuración de hooks del core: `.claude/sdd-hooks.env` (`SDD_PROD_MARKERS`, `SDD_BASE_BRANCH`, `SDD_TENANT_FIELD`, `SDD_TEST_CMD_RE`, `SDD_COMMENT_MAX_BLOCK`, `SDD_COMMENT_MAX_PCT`).
 
 ## 7. Idioma
-Código, identificadores y mensajes de commit en inglés; docs, ADRs, specs y comentarios en español neutro. Copy de usuario final: `<dialecto del producto>`.
+Código, identificadores, asunto de commit y título de PR en inglés; body de commit (breve, opcional), cuerpo de PR (breve), docs, ADRs, specs y comentarios en español neutro. Copy de usuario final: `<dialecto del producto>`.
 
 ## 8. Git y entrega
 Rama base `develop` (release a `main` con merge commit). Ramas `feat/<slug>`, `fix/<slug>`, `chore/<slug>`. Merge lo hace el humano en GATE 2. Deploy: staging automático; producción por promoción manual.

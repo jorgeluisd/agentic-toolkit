@@ -1,6 +1,6 @@
 ---
 name: delivery-workflow
-description: "Única fuente de verdad de commits, ramas, PR y CI: type(scope) en inglés sin trailers de IA, identidad verificada, preguntas obligatorias, squash a develop y merge commit a main, PR de tres secciones, CI en orden con comandos simbólicos. Usar cuando se commitea, se abre un PR o se toca CI."
+description: "Única fuente de verdad de commits, ramas, PR y CI: asunto type(scope) en inglés y body breve en español, sin trailers de IA, identidad verificada, preguntas obligatorias, squash a develop y merge commit a main, PR de tres secciones, CI en orden con comandos simbólicos. Usar cuando se commitea, se abre un PR o se toca CI."
 ---
 
 # Entrega: commits, ramas, PR y CI
@@ -16,7 +16,7 @@ Esta skill es agnóstica de lenguaje: los comandos aparecen como símbolos y el 
 ```
 <type>(<scope>): <imperative summary in English, ≤ 72 characters, no trailing period>
 
-<optional body: what changes and why, in English, lines ≤ 72>
+<body opcional, en español neutro y breve: 1–3 líneas con el porqué que el título no dice; líneas ≤ 72. Sin narrar el diff>
 ```
 
 | type | Cuándo |
@@ -79,16 +79,18 @@ Base: `develop` (o `main` si el `CLAUDE.md` del producto declara trunk-based). N
 
 ## 7. Plantilla de PR
 
-PR es la única forma de llegar a `develop`/`main`. Título = subject del commit principal (formato de §1). Cuerpo con **exactamente** estas tres secciones, nada más:
+PR es la única forma de llegar a `develop`/`main`. Título = subject del commit principal (formato de §1, en inglés). Cuerpo en español neutro, **breve** (≤ 8 líneas en total) y con **exactamente** estas tres secciones, nada más:
 
 ```
 ## Qué cambia
 <3 líneas máx.>
 ## Por qué
-<solo si no es obvio; una línea>
+<solo si el título no lo dice; una línea>
 ## Verificación
 <comandos corridos y resultado literal: typecheck · lint (boundaries) · test · test:integration si aplica · audit>
 ```
+
+Breve significa breve: si el PR necesita más de ocho líneas para explicarse, lo que sobra va a `docs/sdd/<feature>/`, no al PR.
 
 No va en el PR (vive en `docs/sdd/<feature>/` y en la conversación): referencias a otros PR, personas, ADRs, análisis de riesgo, orden de merge, alternativas descartadas, avisos, checklists, capturas, emojis, firmas. La plantilla de PR del repo contiene solo esas tres cabeceras.
 
@@ -150,7 +152,7 @@ Reglas del validador: lista cerrada con los diez types de §1, scope obligatorio
 ## 11. Checklist
 
 - [ ] ¿Símbolos de §0 resueltos desde `CLAUDE.md` §6 / `testing-conventions`, y `git config --local user.name/user.email` verificados antes del primer commit?
-- [ ] ¿Cada commit `type(scope): summary` en inglés, ≤ 72, scope único?
+- [ ] ¿Cada commit `type(scope): summary` en inglés, ≤ 72, scope único; body (si hay) en español, ≤ 3 líneas, solo el porqué?
 - [ ] ¿`git log -1 --format='%an <%ae>%n%B' | grep -iE 'co-authored-by|claude-session|generated with|anthropic'` vacío tras cada commit?
 - [ ] ¿Se preguntó "¿misma rama o nueva?" y "¿abro el PR?" y se esperó respuesta?
 - [ ] ¿Rama `feat|fix|chore/<slug>` desde `develop`; sin push a `develop`/`main`, sin `--force`, sin `--no-verify`? ¿Release `develop` → `main` con merge commit (nunca squash)?
