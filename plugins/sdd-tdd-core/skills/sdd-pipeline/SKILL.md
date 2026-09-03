@@ -7,6 +7,8 @@ description: "Cómo se ejecuta cualquier cambio de código: el pipeline SDD+TDD 
 
 Cuando el usuario pide un cambio de código en lenguaje natural ("agrega un endpoint", "arregla el bug de X", "implementa la feature Y", "migra la tabla Z"), **no se implementa directo**. Se hace exactamente lo que haría `/sdd-tdd-core:sdd <objetivo>`: leer `ORCHESTRATOR.md` del plugin, clasificar el nivel y lanzar los agentes en orden con artefactos en `docs/sdd/<NNNN>-<slug>/`.
 
+Si el usuario escribe "con sdd", "usa sdd+tdd", "con tdd" o "por el pipeline", no hay nada que interpretar: es una orden explícita de ejecutar el pipeline en nivel completo (o bugfix si además lo dice).
+
 ## 1. Clasificar antes de tocar nada
 
 | Nivel | Señales en el pedido | Recorrido |
