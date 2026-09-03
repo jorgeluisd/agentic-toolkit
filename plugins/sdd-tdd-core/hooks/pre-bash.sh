@@ -43,6 +43,11 @@ if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+commit' && printf '%s' "$lc" | g
   ask "git commit -a incluye todo lo modificado sin revisar el stage (riesgo de versionar .env o artefactos). Confirma o usa git add explícito."; exit 0
 fi
 
+# 2b) Evidencia TDD: la salida de una corrida de tests no se filtra con pipes.
+if is_test_run "$cmd" && printf '%s' "$lc" | grep -Eq '\|[[:space:]]*(tail|head|grep|egrep|rg|cut|sed|awk|wc|less|more)([[:space:]]|$)'; then
+  deny "No filtres la salida de una corrida de tests (| tail/head/grep): el hook de evidencia necesita el resumen completo del runner. Acota con el filtro del propio runner (-t, --reporter=dot, ruta del archivo) y corre el comando sin pipe."; exit 0
+fi
+
 # 3) Instalación y sistema.
 if [ "$PNPM_PROJECT" = 1 ] && printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])(npm|yarn)[[:space:]]+(install|add|i|ci|run|exec)'; then
   deny "Este proyecto usa pnpm (hay pnpm-lock.yaml). Usa pnpm."; exit 0

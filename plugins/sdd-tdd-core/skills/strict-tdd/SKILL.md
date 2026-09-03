@@ -107,7 +107,7 @@ El hook `PostToolUse` del plugin registra cada corrida de test en `docs/sdd/<fea
 | T2-cancel-order | REFACTOR | order.aggregate.<ext> | <test:file> order.aggregate.<ext> | PASS — 2 passed | 2026-09-03T14:12:30Z |
 ```
 
-Validez (la revisa el `verifier`): cada fila tiene un timestamp presente en el log con el mismo comando y exit code coherente (RED ≠ 0, GREEN/REFACTOR = 0); el RED de un test precede a su GREEN; TRIANGULATE agrega pares RED→GREEN; ninguna fila sin línea de salida. Evidencia inválida → la tarea vuelve al `implementer`. **Cómo se verifica:** `grep -c "| exit=[1-9]" docs/sdd/<feature>/tdd-evidence.log` ≥ número de filas RED, y `grep "<timestamp>" ...` devuelve una línea por cada fila de la tabla.
+Validez (la revisa el `verifier`): cada fila tiene un timestamp presente en el log con el mismo comando y exit code coherente (RED ≠ 0, GREEN/REFACTOR = 0); el RED de un test precede a su GREEN; TRIANGULATE agrega pares RED→GREEN; ninguna fila sin línea de salida. **Una línea del log con `WARN=no-tests-ran` o `WARN=piped-output` no es evidencia**: un `exit=0` con cero tests ejecutados (filtro `-t` que no coincide con ningún nombre, archivo mal escrito, "No test files found") es un verde falso, no un GREEN; y una salida filtrada con `| tail`/`| grep` pierde el resumen del runner. En ambos casos se repite la corrida sin pipe y con un filtro que ejecute al menos un test (el resumen debe mostrar `≥1 passed` o `≥1 failed`). Evidencia inválida → la tarea vuelve al `implementer`. **Cómo se verifica:** `grep -c "| exit=[1-9]" docs/sdd/<feature>/tdd-evidence.log` ≥ número de filas RED, y `grep "<timestamp>" ...` devuelve una línea por cada fila de la tabla.
 
 ## 7. Cuando el safety net falla
 

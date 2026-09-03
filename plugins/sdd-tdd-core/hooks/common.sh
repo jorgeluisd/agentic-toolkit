@@ -17,6 +17,23 @@ TENANT_FIELD="${CLAUDE_PLUGIN_OPTION_TENANT_FIELD:-${SDD_TENANT_FIELD:-}}"
 # Regex que reconoce una corrida de tests (evidencia TDD). Default multi-stack.
 TEST_CMD_RE="${CLAUDE_PLUGIN_OPTION_TEST_CMD_RE:-${SDD_TEST_CMD_RE:-}}"
 [ -z "$TEST_CMD_RE" ] && TEST_CMD_RE='(vitest|jest|mocha|(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test|turbo[[:space:]]+(run[[:space:]]+)?test|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|$)|artisan[[:space:]]+test|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)'
+# is_test_run <comando>: 0 si alguno de los segmentos del comando ejecuta tests.
+# Quita cadenas entre comillas y descarta segmentos cuyo primer verbo es de
+# impresión/lectura (echo, printf, cat, grep, git, sed...) para que "echo pnpm test"
+# o git commit -m "run vitest" no cuenten como evidencia.
+is_test_run() {
+  local c stripped seg first
+  c="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
+  stripped="$(printf '%s' "$c" | sed -E "s/'[^']*'//g; s/\"[^\"]*\"//g")"
+  printf '%s\n' "$stripped" | sed -E 's/\|\||&&|;|\|/\n/g' | while IFS= read -r seg; do
+    seg="$(printf '%s' "$seg" | sed -E 's/^[[:space:]]+//; s/^(cd [^ ]+ *)//; s/^([a-z_]+=[^ ]+ +)*//')"
+    first="$(printf '%s' "$seg" | awk '{print $1}')"
+    case "$first" in
+      echo|printf|cat|grep|egrep|rg|tail|head|less|more|sed|awk|cut|wc|git|gh|ls|find|open|code|vim|nano|man|which|type|"") continue ;;
+    esac
+    printf '%s' "$seg" | grep -Eq "$TEST_CMD_RE" && { echo yes; break; }
+  done | grep -q yes
+}
 # Gestor de paquetes JS del proyecto (para el guardrail npm/yarn): solo aplica si hay pnpm-lock.yaml.
 PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
 

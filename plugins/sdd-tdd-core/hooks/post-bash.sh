@@ -10,7 +10,7 @@ cmd="$(jq_get '.tool_input.command')"
 lc="$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')"
 
 # 1) Evidencia de tests.
-if printf '%s' "$lc" | grep -Eq "$TEST_CMD_RE"; then
+if is_test_run "$cmd"; then
   stdout="$(printf '%s' "$INPUT" | jq -r '(.tool_response.stdout // .tool_response.output // .tool_response // "") | tostring' 2>/dev/null)"
   stderr="$(printf '%s' "$INPUT" | jq -r '(.tool_response.stderr // "") | tostring' 2>/dev/null)"
   all="$stdout"$'\n'"$stderr"
@@ -33,6 +33,16 @@ if printf '%s' "$lc" | grep -Eq "$TEST_CMD_RE"; then
   # Nunca registrar secretos ni datos personales en el log: se limpian por patrón.
   safe_cmd="$(printf '%s' "$cmd" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)"
   safe_sum="$(printf '%s' "$summary" | sed -E "s#$SECRET_RE#[REDACTED]#g; s#$EMAIL_RE#[email]#g")"
+  # Marcas de evidencia sospechosa: salida filtrada por pipe (se pierde el resumen del runner)
+  # o corrida donde no se ejecutó ningún test (filtro -t mal escrito, "No test files found").
+  warn=""
+  printf '%s' "$lc" | grep -Eq '\|[[:space:]]*(tail|head|grep|egrep|rg|cut|sed|awk|wc|less|more)([[:space:]]|$)' && warn="${warn}piped-output;"
+  # Verde falso: exit=0 sin evidencia de que se ejecutó al menos un test (todo skipped, filtro -t sin
+  # coincidencias, "No test files found"). Cubre vitest/jest, pytest, phpunit/pest, go, cargo, dotnet.
+  if [ "$code" = 0 ] && ! printf '%s' "$all" | grep -Eiq '[1-9][0-9]*[[:space:]]+(passed|failed|tests?[[:space:]]*(,|\)|$))|OK[[:space:]]*\([1-9]|^ok[[:space:]]|test result: ok|passed!|Passed:[[:space:]]*[1-9]|tests: [1-9]'; then
+    warn="${warn}no-tests-ran;"
+  fi
+  [ -n "$warn" ] && safe_sum="$safe_sum | WARN=${warn%;}"
   printf '%s | exit=%s | %s | %s\n' "$ts" "$code" "$safe_cmd" "$safe_sum" >> "$dir/tdd-evidence.log" 2>/dev/null
 fi
 
