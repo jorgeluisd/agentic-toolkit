@@ -3,6 +3,7 @@
 > Solo lo estable e inviolable del producto, más punteros. El estado vive en el plan/backlog.
 > El proceso (pipeline, gates, TDD, commits, PR, memoria) lo define el plugin `sdd-tdd-core`; las reglas técnicas, el plugin de stack instalado.
 > Ante conflicto de proceso gana el plugin; ante conflicto de invariante de producto gana este archivo.
+> **Toda feature, bugfix o cambio de esquema se ejecuta por el pipeline SDD** (equivale a `/sdd-tdd-core:sdd`), pedido por comando o en lenguaje natural. Solo el nivel trivial (typo, copy, bump de patch) queda fuera.
 
 ## 0. Fuentes de verdad
 | Qué | Dónde |

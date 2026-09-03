@@ -36,6 +36,8 @@ explorer → proposer → spec-writer → designer → task-planner → [GATE 1]
 
 Si durante un bugfix aparece un cambio de contrato o de esquema, se detiene y se sube al nivel completo.
 
+El pipeline se dispara igual si el pedido llega por `/sdd-tdd-core:sdd` o en lenguaje natural ("agrega un endpoint…"): la skill `sdd-pipeline` y el hook `UserPromptSubmit` del plugin recuerdan clasificar el nivel antes de tocar archivos, y el `CLAUDE.md` de cada proyecto lo fija como regla.
+
 ## 3. Protocolo de artefactos
 
 Todo vive en `docs/sdd/<NNNN>-<slug>/` (número correlativo; el slug es el mismo de la rama). `docs/sdd/.current` contiene el nombre de la carpeta activa; lo escribe el `task-planner` y lo leen los hooks.
