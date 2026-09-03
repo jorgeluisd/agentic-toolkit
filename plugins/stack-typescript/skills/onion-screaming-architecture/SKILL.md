@@ -7,6 +7,10 @@ description: "Capas Onion, matriz de imports, carpetas por bounded context, sufi
 
 Dependencias siempre hacia adentro; la estructura de carpetas grita el negocio (`orders/`, `billing/`), no la tecnología (`controllers/`, `services/`). Enforcement con `eslint-plugin-boundaries` en `pnpm lint`; nunca "honor system".
 
+## 0. Caché de tareas y enforcement
+
+Si `pnpm lint` corre por turbo, `turbo.json` debe declarar en `inputs` de la tarea `lint` los archivos que cambian el resultado sin tocar `src/`: `eslint.config.mjs` de la raíz, `.dependency-cruiser.cjs` si existe, `tsconfig*.json`. Sin eso, aflojar o romper una regla de arquitectura deja `pnpm lint` en verde desde caché (local y en CI si restaura la caché). **Cómo se verifica:** cambiar una regla del `eslint.config.mjs` y correr `pnpm lint`: la salida no debe decir `cached`. `pnpm lint -- --force` no sirve (el flag llega a eslint); es `pnpm exec turbo run lint --force`.
+
 ## 1. Layout canónico
 
 ```
