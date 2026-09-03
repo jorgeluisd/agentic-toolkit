@@ -59,7 +59,7 @@ fi
 # quedaría (contenido completo en Write; para Edit/MultiEdit, el archivo actual con el reemplazo aplicado
 # no está disponible aquí, así que se mide solo el fragmento nuevo).
 if printf '%s' "$rel" | grep -Eq '\.(ts|tsx|js|jsx|mjs|php|py|go|rs|kt|java|swift|cs)$' \
-   && ! printf '%s' "$rel" | grep -Eq '(\.d\.ts$|\.config\.[a-z]+$|(^|/)(migrations?|drizzle|database/migrations|alembic)/|\.(spec|test|integration\.spec|e2e-spec)\.[a-z]+$|(^|/)scripts?/|(^|/)\.claude/)'; then
+   && ! printf '%s' "$rel" | grep -Eq '(\.d\.ts$|\.config\.[a-z]+$|(^|/)(migrations?|drizzle|database/migrations|alembic)/|\.(spec|test|integration\.spec|e2e-spec)\.[a-z]+$|(^|/)(tests?|__tests__|spec|e2e|fixtures?|testing)/|(^|/)scripts?/|(^|/)\.claude/)'; then
   stats="$(printf '%s\n' "$content" | awk -v maxblock="$COMMENT_MAX_BLOCK" '
     function is_comment(l) { return (l ~ /^[[:space:]]*(\/\/|#|\*|\/\*|<!--|--[[:space:]])/ && l !~ /^[[:space:]]*#!/ && l !~ /^[[:space:]]*#\[/) }
     { total++; if (is_comment($0)) { c++; run++; if (run > longest) longest = run } else if ($0 !~ /^[[:space:]]*$/) { run = 0 } }
