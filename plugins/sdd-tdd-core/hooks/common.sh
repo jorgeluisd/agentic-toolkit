@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Funciones comunes de los hooks. Se hace `source` desde cada script.
+# Sin `set -e`: un grep que no matchea devuelve 1 y abortaría el hook.
+
+# Configuración: primero variables de entorno exportadas por el harness a partir
+# del userConfig del plugin (CLAUDE_PLUGIN_OPTION_<KEY>); después, si existe,
+# el archivo del proyecto .claude/sdd-hooks.env (KEY=VALUE, una por línea), que
+# funciona aunque el harness no exporte las opciones.
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+if [ -f "$PROJECT_DIR/.claude/sdd-hooks.env" ]; then
+  # shellcheck disable=SC1091
+  set -a; . "$PROJECT_DIR/.claude/sdd-hooks.env"; set +a
+fi
+PROD_MARKERS="${CLAUDE_PLUGIN_OPTION_PROD_MARKERS:-${SDD_PROD_MARKERS:-}}"
+BASE_BRANCH="${CLAUDE_PLUGIN_OPTION_BASE_BRANCH:-${SDD_BASE_BRANCH:-develop}}"
+TENANT_FIELD="${CLAUDE_PLUGIN_OPTION_TENANT_FIELD:-${SDD_TENANT_FIELD:-}}"
+# Regex que reconoce una corrida de tests (evidencia TDD). Default multi-stack.
+TEST_CMD_RE="${CLAUDE_PLUGIN_OPTION_TEST_CMD_RE:-${SDD_TEST_CMD_RE:-}}"
+[ -z "$TEST_CMD_RE" ] && TEST_CMD_RE='(vitest|jest|mocha|(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test|turbo[[:space:]]+(run[[:space:]]+)?test|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|$)|artisan[[:space:]]+test|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)'
+# Gestor de paquetes JS del proyecto (para el guardrail npm/yarn): solo aplica si hay pnpm-lock.yaml.
+PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
+
+read_input() { INPUT="$(cat)"; }
+jq_get() { printf '%s' "$INPUT" | jq -r "$1 // \"\"" 2>/dev/null; }
+
+# PreToolUse: pedir confirmación humana / denegar.
+ask()  { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$(printf '%s' "$1" | jq -Rs .)"; }
+deny() { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$(printf '%s' "$1" | jq -Rs .)"; }
+# PostToolUse: devolver el problema al agente para que lo corrija.
+block_post() { printf '{"decision":"block","reason":%s}\n' "$(printf '%s' "$1" | jq -Rs .)"; }
+
+# Patrones compartidos.
+AI_TRAILER_RE='co-authored-by|claude-session|generated with|anthropic|noreply@anthropic'
+SECRET_RE='(sk-[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{10,}|postgres(ql)?://[^[:space:]]+:[^[:space:]@]+@|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)'
+EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+PHONE_RE='\+[0-9]{8,15}'
+EXAMPLE_EMAIL_RE='@(example\.(com|org|net)|test\.local|localhost)'

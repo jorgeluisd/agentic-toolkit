@@ -1,13 +1,19 @@
 {
   "name": "agentic-toolkit",
-  "version": "1.0.0",
-  "description": "Marketplace de plugins de Claude Code para desarrollo con SDD + Strict TDD sobre arquitectura Onion + Screaming.",
+  "version": "1.1.0",
+  "description": "Marketplace de plugins de Claude Code para desarrollo con SDD + Strict TDD: un core de proceso agnostico de lenguaje y un plugin de skills por stack.",
   "owner": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
   "plugins": [
     {
-      "name": "sdd-tdd-orchestrator",
-      "description": "Pipeline SDD+TDD de 10 agentes y 2 gates humanos, 13 skills compartidas, comandos de sesion y guardrails por hooks. Agnostico de producto.",
-      "source": "./plugins/sdd-tdd-orchestrator",
+      "name": "sdd-tdd-core",
+      "description": "Proceso SDD+TDD agnostico de lenguaje: 10 agentes, 2 gates humanos, protocolo de artefactos, comandos de sesion, strict-tdd y delivery-workflow, guardrails por hooks. Instalar siempre.",
+      "source": "./plugins/sdd-tdd-core",
+      "category": "development"
+    },
+    {
+      "name": "stack-typescript",
+      "description": "Skills tecnicas para TypeScript: NestJS + Next.js + Drizzle/Postgres + RLS + Vitest, con plantillas de settings, CI y commitlint. Instalar junto con sdd-tdd-core en proyectos TypeScript.",
+      "source": "./plugins/stack-typescript",
       "category": "development"
     }
   ]

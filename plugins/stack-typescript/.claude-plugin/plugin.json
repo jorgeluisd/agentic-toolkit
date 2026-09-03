@@ -1,0 +1,9 @@
+{
+  "name": "stack-typescript",
+  "displayName": "Stack TypeScript (NestJS + Next.js + Drizzle)",
+  "version": "1.0.0",
+  "description": "Skills tecnicas del stack TypeScript para sdd-tdd-core: Onion + Screaming Architecture con enforcement por ESLint boundaries, dominio puro, CQRS y jobs, errores y Result, persistencia Drizzle/Postgres, multi-tenancy con RLS, testing con Vitest, seguridad baseline, logging con pino, frontend Next.js + React 19 + Tailwind 4, y actualizacion de dependencias con pnpm. Incluye plantillas de settings.json, CI y commitlint.",
+  "author": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
+  "license": "UNLICENSED",
+  "keywords": ["typescript", "nestjs", "nextjs", "drizzle", "postgres", "rls", "vitest", "onion-architecture", "screaming-architecture"]
+}
