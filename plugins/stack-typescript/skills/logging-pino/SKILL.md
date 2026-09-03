@@ -1,6 +1,6 @@
 ---
 name: logging-pino
-description: "Logging con pino y nestjs-pino: redact por path, niveles por entorno, objeto primero y mensaje {context}.{action}.{outcome}, campo err, traceId propagado a jobs y salientes, catálogo de eventos críticos, test anti-fuga de PII y auditoría aparte. Usar cuando se configura el logger o se agrega un log."
+description: "Logging con pino y nestjs-pino: redact por path, niveles por entorno, objeto primero y mensaje {context}.{action}.{outcome}, campo err, traceId propagado a jobs, catálogo de eventos críticos, test anti-fuga de PII y auditoría aparte. Usar cuando se configura el logger o se agrega un log."
 ---
 
 # Logging con pino

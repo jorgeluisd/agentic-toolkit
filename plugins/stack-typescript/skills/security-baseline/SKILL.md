@@ -1,6 +1,6 @@
 ---
 name: security-baseline
-description: "Baseline de seguridad verificable: OWASP con mitigación mecánica, JWT de un algoritmo, env con zod, webhooks HMAC, zod strict, SSRF allowlist, headers y rate limit con test, PII fuera de todo artefacto y cifrado envelope. Usar cuando se toca auth, inputs, secretos, webhooks o PII, o se revisa un PR."
+description: "Baseline de seguridad verificable: OWASP con mitigación mecánica, JWT de un algoritmo, env con zod, webhooks HMAC, validación strict, SSRF allowlist, headers y rate limit con test, PII fuera de artefactos, cifrado envelope. Usar cuando se toca auth, inputs, secretos, webhooks, PII o se revisa un PR."
 ---
 
 # Seguridad: baseline

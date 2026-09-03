@@ -1,6 +1,6 @@
 ---
 name: persistence-drizzle
-description: "Schema Drizzle sobre Postgres: naming, tipos, ids de la app, varchar+CHECK sin pgEnum, migraciones aditivas expand/contract con RLS dentro, journal, pooler prepare:false, SET LOCAL, SECURITY DEFINER y repos con rehydrate. Usar cuando se crea o cambia una tabla, migración, función SQL o repositorio."
+description: "Schema Drizzle sobre Postgres: naming, tipos, ids de la app, varchar+CHECK sin pgEnum, migraciones aditivas expand/contract con RLS dentro, journal, pooler prepare:false, SET LOCAL, SECURITY DEFINER, repos con rehydrate. Usar cuando se crea o cambia una tabla, migración, función SQL o repositorio."
 ---
 
 # Persistencia: Drizzle + Postgres
