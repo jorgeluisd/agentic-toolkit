@@ -1,0 +1,88 @@
+# Plantilla de CI mínimo del estándar. Copiar a .github/workflows/ci.yml y ajustar
+# solo los comandos si el proyecto los declara distinto en CLAUDE.md §6.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      # Orden: lint (boundaries) → typecheck → test → integración → build → audit
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Integración con rol de aplicación (nunca superusuario)
+        env:
+          DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/postgres
+          DATABASE_URL: postgres://app_user:app_pass@localhost:5432/postgres
+        run: |
+          psql "$DATABASE_URL_ADMIN" -v ON_ERROR_STOP=1 -c "CREATE ROLE app_user LOGIN PASSWORD 'app_pass' NOBYPASSRLS;"
+          pnpm db:migrate
+          pnpm test:integration
+      - run: pnpm build
+      - run: pnpm audit --audit-level=high
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Secretos en el historial del PR
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Versiones exactas
+        run: |
+          if grep -REn '"\^|"~' --include=package.json apps packages package.json 2>/dev/null; then
+            echo "Rangos de versión prohibidos"; exit 1; fi
+
+  conventions:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: commitlint (título del PR y commits)
+        run: |
+          echo "${{ github.event.pull_request.title }}" | pnpm exec commitlint
+          pnpm exec commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}"
+      - name: Sin atribución de IA en commits
+        run: |
+          if git log --format=%B "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" \
+             | grep -iE 'co-authored-by|claude-session|generated with|anthropic'; then
+            echo "Commit con atribución de IA"; exit 1; fi
+      - name: Plantilla de PR
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          for h in "## Qué cambia" "## Verificación"; do
+            printf '%s' "$BODY" | grep -qF "$h" || { echo "Falta la sección '$h' en el PR"; exit 1; }
+          done
