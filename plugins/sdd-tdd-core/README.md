@@ -124,6 +124,26 @@ Con secretos y emails redactados por patrón, y dos marcas de sospecha: `WARN=pi
 
 Este log y `docs/sdd/.current` son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
 
+### Límites conocidos de los detectores
+
+Los guardrails son regex sobre el contenido que el agente va a escribir. Cubren bien lo que reconocen y **no ven nada fuera de eso**. Conviene saber exactamente dónde está el borde antes de confiarles material sensible.
+
+**Secretos** — se aplica a todo archivo salvo `.env.example|sample|template` y el log de evidencia. Reconoce cinco formas:
+
+| Detecta | No detecta |
+|---|---|
+| `sk-…` (16+ chars) · JWT `eyJ….…` · `postgres://user:pass@…` · `AKIA…` · `-----BEGIN … PRIVATE KEY-----` | Tokens de GitHub (`ghp_`, `gho_`), de Slack (`xox…`), API keys hexadecimales genéricas, bearer sin prefijo `eyJ`, connection strings de MySQL, Mongo o Redis, credenciales en query string |
+
+**Datos personales** — se aplica solo a rutas `docs/`, `fixtures/`, `seeds/`, archivos de test y todo `.md`:
+
+| Detecta | No detecta |
+|---|---|
+| Emails que no sean `@example.com/org/net`, `@test.local` o `@localhost` · Teléfonos en formato internacional (`+` y 8–15 dígitos) | Nombres y apellidos, direcciones, documentos nacionales (RUT, DNI, CUIT, CPF, NIF), tarjetas, fechas de nacimiento, IPs, **teléfonos en formato local** (`11 5555-5555` no matchea) |
+
+Hoy ampliarlos requiere editar `hooks/common.sh` (`SECRET_RE`, `PHONE_RE`) en una copia del plugin: no hay clave de configuración para patrones propios. Si tu proyecto maneja documentos nacionales o teléfonos locales, es el primer lugar donde mirar.
+
+Y hay una categoría que los detectores **no intentan** cubrir, por diseño: `00-explore.md` y `03-design.md` describen tu esquema real, tus endpoints y tus reglas de negocio. Eso no es PII, es propiedad intelectual del producto, y es exactamente para lo que esos artefactos existen. En un repo privado está bien; tenelo presente antes de hacer público un repo que los versiona, porque git es append-only y borrarlos después no los saca del historial.
+
 ---
 
 ## Ciclo de vida de los artefactos
@@ -136,6 +156,8 @@ Este log y `docs/sdd/.current` son **estado de sesión: no se versionan** (`/ado
 ```
 
 Al cerrar, el `archiver` reconcilia el `02-spec.md` del change contra el spec de la **capacidad** que toca y mueve la carpeta a `_archive/<YYYY-MM-DD>-<slug>/`. Cien features no dejan cien specs vigentes: dejan las capacidades que el producto tiene, deduplicadas, más historia fuera del camino. El registro vivo es `specs/`; un `<NNNN>-<slug>/` suelto en la raíz significa change abierto.
+
+**Retención de `_archive/`.** Archivar es mover, nunca borrar: el plugin no poda. La política la fija cada proyecto, y las opciones razonables son tres — dejarlo crecer (son archivos de texto, cuestan poco y git ya los comprime), podar por antigüedad conservando `gates.md` y `06-verify.md` de cada change (el registro de auditoría y la evidencia de verificación), o borrar la carpeta entera confiando en que el spec de capacidad y el historial de git ya guardan lo que importa. La primera es el default sensato hasta que el repo demuestre lo contrario.
 
 ## Gatekeeper de fases
 

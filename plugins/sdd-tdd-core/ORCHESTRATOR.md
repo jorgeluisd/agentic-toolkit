@@ -87,7 +87,7 @@ Un change vive en `<NNNN>-<slug>/` (número correlativo; el slug es el mismo de 
 
 Esto es lo que evita que el registro crezca sin techo. Cien features no dejan cien specs vigentes: dejan las capacidades que el producto realmente tiene, deduplicadas y actualizadas in place, más cien carpetas de historia que nadie necesita leer para entender el sistema hoy. **El registro vivo es `specs/`; `_archive/` es historia.** Un `<NNNN>-<slug>/` suelto en la raíz significa change abierto.
 
-Archivar es mover, nunca borrar: la poda de `_archive/` es decisión del proyecto, no del proceso.
+Archivar es mover, nunca borrar: el proceso no poda. La política de retención de `_archive/` la fija cada proyecto; el README del plugin lista las tres opciones razonables y cuál conviene por defecto.
 
 Reglas:
 - Cada agente recibe **solo** las referencias de los artefactos previos (resueltas a ruta por el orquestador) y su tarea; nunca el historial de chat ni el cuerpo de un artefacto.

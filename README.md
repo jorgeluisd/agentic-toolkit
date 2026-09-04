@@ -167,6 +167,8 @@ Los hooks del core corren en cada tool call y no dependen de que el agente decid
 
 Lo que **pide confirmación humana** (`ask`): comandos que parecen dirigidos a producción, push directo a la rama base, merge/rebase sobre ramas base, `git commit -a`, `rm -rf` amplio, y lectura de dumps o archivos de credenciales.
 
+**Lo que no ven.** Son regex: los secretos se detectan en cinco formas (`sk-`, JWT, `postgres://user:pass@`, `AKIA`, claves privadas PEM) y los datos personales solo como emails no sintéticos y teléfonos en formato internacional. Quedan fuera los tokens de GitHub o Slack, las API keys genéricas, los documentos nacionales y los teléfonos locales. El detalle completo del borde está en la [referencia del core](plugins/sdd-tdd-core/README.md#límites-conocidos-de-los-detectores) — vale leerlo antes de confiarles material sensible.
+
 Y lo que **registra**: cada corrida de tests va a `docs/sdd/<feature>/tdd-evidence.log` con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
 
 ---
