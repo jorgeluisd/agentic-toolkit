@@ -91,6 +91,7 @@ El core lee unos pocos valores que no puede adivinar. Se pueden declarar en dos 
 | `SDD_PROD_MARKERS` | `prod_markers` | vacío | Regex extendida que marca un comando como dirigido a producción (refs de base de datos, nombres de app, dominios). Se suma a los patrones genéricos |
 | `SDD_TENANT_FIELD` | `tenant_field` | vacío | Campo de tenant en DTOs y esquema. Vacío = proyecto single-tenant y los checks de tenant se apagan |
 | `SDD_TEST_CMD_RE` | `test_cmd_re` | multi-stack | Regex que reconoce una corrida de tests para la evidencia TDD. El default ya cubre vitest, jest, pytest, phpunit, pest, go test, cargo test, dotnet test, mvn/gradle |
+| `SDD_PROGRESS_KEEP_TASKS` | `progress_keep_tasks` | `10` | Tareas que conserva `05-apply-progress.md` antes de rotar el detalle viejo a un archivo aparte |
 | `SDD_COMMENT_MAX_BLOCK` / `SDD_COMMENT_MAX_PCT` | `comment_max_block` / `comment_max_pct` | `4` / `15` | Límite de comentarios en código fuente. Tests, migraciones, configs y `scripts/` quedan exentos |
 
 ---
@@ -185,7 +186,7 @@ plugins/
     skills/                         # sdd-pipeline · strict-tdd · delivery-workflow
     gates/                          # checklists de GATE 1 y GATE 2
     hooks/                          # guardrails + gatekeeper (bash + jq)
-    tests/e2e.sh                    # 53 aserciones sobre un repo git real
+    tests/e2e.sh                    # 68 aserciones sobre un repo git real
     templates/                      # CLAUDE.md, sdd-hooks.env, skill de invariantes, PR
   stack-typescript/
     skills/                         # 11 skills técnicas
@@ -220,7 +221,7 @@ claude plugin marketplace update agentic-toolkit
 ## Contribuir
 
 ```bash
-bash plugins/sdd-tdd-core/tests/e2e.sh   # 53 aserciones, repo de prueba descartable
+bash plugins/sdd-tdd-core/tests/e2e.sh   # 68 aserciones, repo de prueba descartable
 ```
 
 El CI corre esa suite más `bash -n` y `shellcheck` sobre los hooks, y valida los manifiestos (JSON, que cada hook declarado exista y sea ejecutable, y que el marketplace apunte a plugins reales) en cada push y PR.

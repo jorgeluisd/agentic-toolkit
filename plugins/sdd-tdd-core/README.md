@@ -38,6 +38,7 @@ El archivo del proyecto se versiona y es la fuente de verdad para ese repo. El `
 | `SDD_PROD_MARKERS` | `prod_markers` | vacío | Regex extendida (`grep -E`) que identifica un comando como dirigido a producción. Se suma a los patrones genéricos de deploy y migración |
 | `SDD_TENANT_FIELD` | `tenant_field` | vacío | Campo de tenant. Activa los checks de DTOs sin tenant y de RLS en migraciones. Vacío = single-tenant, checks apagados |
 | `SDD_TEST_CMD_RE` | `test_cmd_re` | multi-stack | Regex que reconoce una corrida de tests para la evidencia TDD. El default cubre vitest, jest, mocha, tsc, phpunit, pest, artisan test, phpstan, pytest, mypy, go test, cargo test, dotnet test, mvn, gradle, swift test, xcodebuild |
+| `SDD_PROGRESS_KEEP_TASKS` | `progress_keep_tasks` | `10` | Tareas cuyo detalle conserva `05-apply-progress.md` antes de rotar. El `implementer` lo relee en cada tarea; pasado el umbral el gatekeeper deniega hasta rotar |
 | `SDD_COMMENT_MAX_BLOCK` | `comment_max_block` | `4` | Bloque contiguo máximo de comentario en código fuente |
 | `SDD_COMMENT_MAX_PCT` | `comment_max_pct` | `15` | Porcentaje máximo de líneas comentadas por archivo |
 
@@ -120,7 +121,7 @@ Cada corrida de tests se registra en `<raíz>/<feature>/tdd-evidence.log`:
 2026-09-04T01:12:44Z | exit=0 | pnpm test orders | Tests 12 passed (12) Test Files 3 passed
 ```
 
-Con secretos y emails redactados por patrón, y dos marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, y `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"). El `verifier` contrasta la tabla del apply-progress contra este log.
+Con secretos y emails redactados por patrón, y tres marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"), y `WARN=full-suite-mid-cycle` si se corrió la suite completa con un RED abierto — la suite es del cierre de tarea y del `verifier`, no del ciclo interno, y cuesta unas 3× más por corrida. El `verifier` contrasta la tabla del apply-progress contra este log.
 
 Este log y `docs/sdd/.current` son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
 
@@ -172,6 +173,7 @@ El hook `pre-task` intercepta cada lanzamiento de agente y deniega si falta un i
 | `implementer` | `spec`, `design`, `tasks` **y GATE 1 aprobado** |
 | `verifier` | + `apply-progress`, `evidence` |
 | `code-reviewer` / `security-reviewer` | los artefactos de diseño + `apply-progress` |
+| `implementer` | + `05-apply-progress.md` con ≤ `SDD_PROGRESS_KEEP_TASKS` tareas sin rotar |
 | `archiver` | `gates` |
 
 En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las fases de diseño quedan denegadas por no pertenecer al recorrido. Sin feature activa el hook no interviene.
@@ -184,7 +186,7 @@ En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las 
 bash plugins/sdd-tdd-core/tests/e2e.sh
 ```
 
-53 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda Claude Code, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, y el cierre con reconciliación de capacidad y archivado.
+68 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda Claude Code, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, y el cierre con reconciliación de capacidad y archivado.
 
 Solo necesita `bash`, `git` y `jq`; si además hay `node`, la evidencia sale de una corrida real en vez de un payload equivalente. Sale 0 si todo pasa, 1 si algo falla. Corre en CI en cada push y PR, junto a `bash -n` y `shellcheck` sobre los seis hooks.
 

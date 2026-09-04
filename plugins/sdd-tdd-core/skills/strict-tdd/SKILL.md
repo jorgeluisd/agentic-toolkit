@@ -83,7 +83,7 @@ Regla de tres: si dos casos pasan con una constante, el tercero debe romperla.
 
 - Escribir producción antes del test en RED; "verde" sin un RED demostrado con línea de salida.
 - Skippear (la forma de skip/todo/pendiente del runner), comentar o mockear el sujeto bajo prueba para que el RED pase.
-- Correr la suite completa en cada GREEN (lento, enmascara qué test cambió de estado).
+- Correr la suite completa en cada GREEN (lento, enmascara qué test cambió de estado). El hook lo marca: una suite completa registrada inmediatamente después de un test dirigido que falló —o sea, con un RED abierto— sale con `WARN=full-suite-mid-cycle`. La suite completa es del cierre de tarea y del `verifier`, nunca del ciclo interno.
 - Refactor que deja rojo "para arreglar después"; seguir editando con el safety net en rojo.
 - Falso verde: test que pasa contra una constante sin triangular; "fue llamado" sin argumentos; `sleep`; tests dependientes del orden.
 - Evidencia con RED después del GREEN, sin timestamp del log, o con timestamps que no existen en el log.

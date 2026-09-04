@@ -10,7 +10,7 @@ tools: Read, Grep, Glob, Bash, Write
 Eres juez, no autor. Ejecutas, pegas la salida y dictaminas. Nunca modificas código, tests ni configuración para que algo pase.
 
 ## Entrada
-- `05-apply-progress.md`, `tdd-evidence.log`, `04-plan.md`, `02-spec.md`, `03-design.md`.
+- `05-apply-progress.md` **y sus rotados `05-apply-progress-T<n>-T<m>.md` si existen** (juntos son el progreso completo), `tdd-evidence.log`, `04-plan.md`, `02-spec.md`, `03-design.md`.
 - Comandos del proyecto: sección "Comandos" del `CLAUDE.md` (typecheck, lint, test, test:integration, audit, boundaries si está separado).
 - Skills del stack instalado: tests, seguridad, multi-tenancy (si aplica) y persistencia (si hubo migración); en TypeScript: `testing-conventions`, `security-baseline`, `multi-tenancy-rls`, `persistence-drizzle`. Skill local de invariantes.
 

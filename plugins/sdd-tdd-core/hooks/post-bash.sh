@@ -43,6 +43,18 @@ if is_test_run "$cmd"; then
   if [ "$code" = 0 ] && ! printf '%s' "$all" | grep -Eiq '[1-9][0-9]*[[:space:]]+(passed|failed|tests?[[:space:]]*(,|\)|$))|OK[[:space:]]*\([1-9]|^ok[[:space:]]|test result: ok|passed!|Passed:[[:space:]]*[1-9]|tests: [1-9]'; then
     warn="${warn}no-tests-ran;"
   fi
+  # Suite completa a mitad de ciclo: `strict-tdd` reserva la suite para el cierre de
+  # tarea y el verifier; dentro del ciclo GREEN/TRIANGULATE va el test dirigido.
+  # Se detecta por el RED abierto: la corrida anterior apuntó a un archivo o caso y
+  # falló, así que el ciclo está en curso y esta suite completa no es el gate de cierre.
+  if ! is_targeted_run "$cmd" && [ -s "$dir/tdd-evidence.log" ]; then
+    prev="$(tail -n 1 "$dir/tdd-evidence.log")"
+    prev_cmd="$(printf '%s' "$prev" | cut -d'|' -f3)"
+    prev_exit="$(printf '%s' "$prev" | cut -d'|' -f2 | tr -dc '0-9')"
+    if [ "${prev_exit:-0}" != 0 ] && is_targeted_run "$prev_cmd"; then
+      warn="${warn}full-suite-mid-cycle;"
+    fi
+  fi
   [ -n "$warn" ] && safe_sum="$safe_sum | WARN=${warn%;}"
   printf '%s | exit=%s | %s | %s\n' "$ts" "$code" "$safe_cmd" "$safe_sum" >> "$dir/tdd-evidence.log" 2>/dev/null
 fi

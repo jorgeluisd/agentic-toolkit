@@ -27,6 +27,11 @@ case "$ARTIFACTS_DIR" in
   *)     ARTIFACTS_ROOT="$PROJECT_DIR/$ARTIFACTS_DIR" ;;
 esac
 ARTIFACTS_ROOT="${ARTIFACTS_ROOT%/}"
+# Tareas cuyo detalle se conserva en 05-apply-progress.md antes de rotar. El
+# implementer relee ese archivo en cada tarea: sin rotar, el costo crece
+# cuadráticamente (la tarea N relee el detalle de las N-1 anteriores).
+PROGRESS_KEEP_TASKS="${SDD_PROGRESS_KEEP_TASKS:-${CLAUDE_PLUGIN_OPTION_PROGRESS_KEEP_TASKS:-10}}"
+case "$PROGRESS_KEEP_TASKS" in ""|*[!0-9]*) PROGRESS_KEEP_TASKS=10 ;; esac
 # Comentarios en código: bloque contiguo máximo y porcentaje máximo de líneas comentadas por archivo.
 COMMENT_MAX_BLOCK="${SDD_COMMENT_MAX_BLOCK:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_BLOCK:-4}}"
 COMMENT_MAX_PCT="${SDD_COMMENT_MAX_PCT:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_PCT:-15}}"
@@ -50,6 +55,22 @@ is_test_run() {
     printf '%s' "$seg" | grep -Eq "$TEST_CMD_RE" && { echo yes; break; }
   done | grep -q yes
 }
+# is_targeted_run <comando>: 0 si la corrida apunta a un archivo de test concreto
+# o filtra un caso por nombre. Lo contrario es una suite completa (de proyecto o de
+# paquete), que en el ciclo RED→GREEN es el antipatrón que `strict-tdd` prohíbe.
+# Agnóstico de stack: un test dirigido nombra un archivo o pasa un filtro de caso
+# (-t, -k, --testNamePattern, -run, --filter-name), venga del runner que venga.
+is_targeted_run() {
+  local c
+  c="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
+  # Un archivo de test nombrado explícitamente.
+  printf '%s' "$c" | grep -Eq '[^[:space:]]+\.(spec|test|e2e-spec|integration\.spec)\.[a-z]+([[:space:]]|$)' && return 0
+  printf '%s' "$c" | grep -Eq 'test_[a-z0-9_]+\.py|[a-z0-9_]+_test\.(py|go|rb|exs?)' && return 0
+  # Un filtro de caso por nombre.
+  printf '%s' "$c" | grep -Eq '(^|[[:space:]])(-t|-k|-run|--testnamepattern|--filter-name|--grep)([[:space:]]|=)' && return 0
+  return 1
+}
+
 # Gestor de paquetes JS del proyecto (para el guardrail npm/yarn): solo aplica si hay pnpm-lock.yaml.
 PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
 

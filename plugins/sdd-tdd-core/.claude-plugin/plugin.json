@@ -1,7 +1,7 @@
 {
   "name": "sdd-tdd-core",
   "displayName": "SDD/TDD Core",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje: 10 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos en docs/sdd/, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
   "author": {
     "name": "Jorge Diaz",
@@ -30,6 +30,13 @@
       "title": "Raiz de artefactos",
       "description": "Ruta donde se materializan los archivos del pipeline. Relativa al proyecto, absoluta o con ~. Vacio = docs/sdd si el store es repo, .claude/sdd en los demas.",
       "default": "",
+      "required": false
+    },
+    "progress_keep_tasks": {
+      "type": "string",
+      "title": "Tareas antes de rotar el apply-progress",
+      "description": "Cuantas tareas conserva 05-apply-progress.md antes de rotar el detalle viejo a un archivo aparte. El implementer lo relee en cada tarea. Vacio = 10.",
+      "default": "10",
       "required": false
     },
     "prod_markers": {

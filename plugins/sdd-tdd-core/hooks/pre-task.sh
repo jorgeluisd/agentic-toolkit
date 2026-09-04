@@ -76,6 +76,21 @@ if [ "$agent" = implementer ] && [ "$level" = full ] && [ -s "$dir/gates.md" ]; 
   fi
 fi
 
+# Rotación del apply-progress. El implementer lo relee entero en cada tarea, así que
+# sin rotar la tarea N paga el detalle de las N-1 anteriores. Se deniega el lanzamiento
+# hasta rotar; rotar reduce el archivo, así que el ciclo termina.
+if [ "$agent" = implementer ] && [ -z "$missing" ] && [ -s "$dir/05-apply-progress.md" ]; then
+  tasks="$(grep -c '^## T-' "$dir/05-apply-progress.md" 2>/dev/null || echo 0)"
+  if [ "$tasks" -gt "$PROGRESS_KEEP_TASKS" ]; then
+    deny "GATEKEEPER: $feature/05-apply-progress.md acumula $tasks tareas (máximo $PROGRESS_KEEP_TASKS antes de rotar). El implementer lo relee entero en cada tarea, así que sin rotar el costo crece con el cuadrado de las tareas.
+
+Rotá antes de relanzar: mové el detalle de las tareas más viejas a $feature/05-apply-progress-T<n>-T<m>.md, y dejá en 05-apply-progress.md una tabla RESUMEN ACUMULADO con una fila por tarea archivada (T-n · estado · commit · AC cubiertos) más el detalle completo de las últimas $PROGRESS_KEEP_TASKS. El verifier lee ambos archivos.
+
+Para cambiar el umbral: SDD_PROGRESS_KEEP_TASKS en .claude/sdd-hooks.env."
+    exit 0
+  fi
+fi
+
 if [ -n "$missing" ]; then
   deny "GATEKEEPER: no se puede lanzar '$agent' (nivel $level). Falta:$missing
 

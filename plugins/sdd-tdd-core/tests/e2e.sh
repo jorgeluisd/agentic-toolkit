@@ -143,6 +143,44 @@ printf 'RESUMEN\n' > "$F/05-apply-progress.md"
 t "verifier con evidencia y progreso"       "$(task verifier)"                            allow
 t "code-reviewer con los artefactos"        "$(task code-reviewer)"                       allow
 
+sec "Alcance del test · dirigido vs suite completa"
+# shellcheck source=/dev/null
+. "$HOOKS/common.sh"
+tgt(){ if is_targeted_run "$1"; then echo dirigido; else echo suite; fi; }
+t "pnpm test"                              "$(tgt 'pnpm test')"                                    suite
+t "turbo run test --force"                 "$(tgt 'pnpm exec turbo run test --force')"             suite
+t "--filter de paquete no es filtro de caso" "$(tgt 'pnpm --filter @app/api exec vitest run')"      suite
+t "archivo .spec.ts nombrado"              "$(tgt 'vitest run src/x.spec.ts')"                     dirigido
+t "filtro -t de caso"                      "$(tgt 'vitest run x.spec.ts -t \"crea\"')"             dirigido
+t "pytest con archivo"                     "$(tgt 'pytest tests/test_orders.py')"                  dirigido
+t "go test ./..."                          "$(tgt 'go test ./...')"                                suite
+
+sec "WARN de suite completa a mitad de ciclo"
+ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --argjson e "$3" \
+       '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:$o,exit_code:$e}}')" >/dev/null; }
+lastwarn(){ tail -n 1 "$F/tdd-evidence.log" | grep -oE 'full-suite-mid-cycle' || echo "-"; }
+: > "$F/tdd-evidence.log"
+ev 'vitest run x.spec.ts -t "caso"' '1 failed' 1
+t "RED dirigido no marca"                  "$(lastwarn)"  -
+ev 'pnpm test' '10 passed' 0
+t "suite tras un RED abierto marca"        "$(lastwarn)"  full-suite-mid-cycle
+: > "$F/tdd-evidence.log"
+ev 'vitest run x.spec.ts -t "caso"' '1 passed' 0
+ev 'pnpm test' '10 passed' 0
+t "suite tras GREEN (cierre) no marca"     "$(lastwarn)"  -
+: > "$F/tdd-evidence.log"
+ev 'pnpm test' '2 failed' 1
+ev 'pnpm test' '10 passed' 0
+t "suite tras suite no marca"              "$(lastwarn)"  -
+
+sec "Rotación del apply-progress"
+mkprog(){ : > "$F/05-apply-progress.md"; for i in $(seq 1 "$1"); do printf '## T-%d — x\n d\n' "$i" >> "$F/05-apply-progress.md"; done; }
+KEEP="$(env CLAUDE_PROJECT_DIR="$R" bash -c ". $HOOKS/common.sh; printf '%s' \"\$PROGRESS_KEEP_TASKS\"")"
+t "umbral por defecto"                     "$KEEP"                    10
+mkprog 10; t "en el umbral, implementer pasa"  "$(task implementer)"  allow
+mkprog 11; t "pasado el umbral, deniega"       "$(task implementer)"  deny
+mkprog 3;  t "tras rotar, vuelve a pasar"      "$(task implementer)"  allow
+
 sec "Cierre · reconciliación de capacidad y archivado"
 git -C "$R" add -A >/dev/null 2>&1; git -C "$R" commit -qm "feat(orders): artifacts" >/dev/null 2>&1
 mkdir -p "$SDD/specs/pedidos" "$SDD/_archive"
