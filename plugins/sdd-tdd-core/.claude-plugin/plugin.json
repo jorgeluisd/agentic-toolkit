@@ -1,7 +1,7 @@
 {
   "name": "sdd-tdd-core",
   "displayName": "SDD/TDD Core",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje: 10 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos en docs/sdd/, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
   "author": {
     "name": "Jorge Diaz",
