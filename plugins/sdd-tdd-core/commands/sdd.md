@@ -9,7 +9,8 @@ $ARGUMENTS
 
 Reglas de orquestación:
 1. Lee `ORCHESTRATOR.md` del plugin y el `CLAUDE.md` del proyecto antes de lanzar nada. Resuelve la **raíz de artefactos** (§0 del `CLAUDE.md` o `.claude/sdd-hooks.env`; default `docs/sdd/`) y úsala en todo el pipeline: donde este comando dice `docs/sdd/`, va la raíz resuelta.
-2. Crea `<raíz>/<NNNN>-<slug>/` (NNNN = siguiente correlativo; slug = el de la rama) y escribe el nombre en `<raíz>/.current`.
+2. Clasifica el nivel (`full` | `bugfix`), crea `<raíz>/<NNNN>-<slug>/` (NNNN = siguiente correlativo ignorando `_archive/`; slug = el de la rama), escribe el nombre en `<raíz>/.current` y el nivel en `<raíz>/<NNNN>-<slug>/.level`. El `.level` no es decorativo: el gatekeeper lo lee para saber qué insumos exigir, y si falta asume `full`.
+2b. Antes del `spec-writer`, listá `<raíz>/specs/` y pasale al agente el spec de la capacidad que la feature toca, si ya existe: la spec nueva declara el delta contra ese comportamiento, no lo redefine desde cero.
 3. Lanza cada agente como subagente **pasándole solo las referencias de los artefactos previos ya resueltas a ruta, y su tarea** — nunca el historial de esta conversación ni el cuerpo de un artefacto. No lanzas un agente si falta el artefacto anterior: verifica que sea legible antes de lanzar.
 4. Nivel `full` (default): explorer → proposer → spec-writer → designer → task-planner → **GATE 1** → implementer por tarea (strict-tdd si `TDD: ON`) → verifier ∥ code-reviewer ∥ security-reviewer (si hubo riesgos) → `/pr-draft` → **GATE 2** → (merge humano) → archiver.
    Nivel `bugfix`: explorer → implementer (TDD ON, el test que reproduce el bug es el RED) → verifier ∥ code-reviewer → **GATE 2**. Si aparece cambio de contrato o esquema, sube a `full`.

@@ -9,7 +9,7 @@ Foco:
 $ARGUMENTS
 (vacío = auditoría general)
 
-Lee en paralelo: `CLAUDE.md`, plan/backlog (rutas declaradas), ADRs, `docs/sdd/*/02-spec.md` con su ESTADO, `git log --oneline -30` en la rama base, y la estructura real del código (contextos, endpoints, migraciones, pantallas).
+Lee en paralelo: `CLAUDE.md`, plan/backlog (rutas declaradas), ADRs, `<raíz>/specs/*/spec.md` (el comportamiento vigente), los `<raíz>/<NNNN>-<slug>/02-spec.md` de los changes **abiertos** con su ESTADO, `git log --oneline -30` en la rama base, y la estructura real del código (contextos, endpoints, migraciones, pantallas). No leas `<raíz>/_archive/`: es historia, y contrastar el código contra specs ya reconciliadas produce falsos hallazgos.
 
 Regla anti-cruce de numeración: el único identificador válido de un ítem es el que figura en el archivo de backlog. Ignora números dentro de cuerpos de ítems o de commits viejos; no deduzcas estado por el número de un commit.
 

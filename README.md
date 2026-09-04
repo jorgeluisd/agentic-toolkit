@@ -12,7 +12,7 @@ El toolkit separa **el proceso** (agnóstico de lenguaje) de **las reglas técni
 
 | Plugin | Qué aporta | Cuándo instalarlo |
 |---|---|---|
-| **`sdd-tdd-core`** | 10 agentes, 2 gates humanos, protocolo de artefactos, comandos de sesión, skills de proceso (`sdd-pipeline`, `strict-tdd`, `delivery-workflow`) y guardrails por hooks | **Siempre.** Funciona con cualquier lenguaje |
+| **`sdd-tdd-core`** | 10 agentes, 2 gates humanos, protocolo de artefactos con gatekeeper de fases, comandos de sesión, skills de proceso (`sdd-pipeline`, `strict-tdd`, `delivery-workflow`) y guardrails por hooks | **Siempre.** Funciona con cualquier lenguaje |
 | **`stack-typescript`** | 11 skills técnicas para TypeScript: Onion + Screaming Architecture, dominio puro, CQRS, Result, Drizzle/Postgres, multi-tenancy con RLS, Vitest, seguridad, pino, Next.js, dependencias con pnpm. Plantillas de `settings.json`, CI y commitlint | En proyectos TypeScript |
 
 El core no sabe nada de tu lenguaje: pregunta por comandos simbólicos (`<test>`, `<lint>`, `<typecheck>`) que resuelve el `CLAUDE.md` de tu proyecto o el plugin de stack. Si trabajás en PHP, Python o Go, instalá solo el core y declará tus comandos — o escribí tu propio plugin de stack ([ver abajo](#extender-tu-propio-plugin-de-stack)).
@@ -132,6 +132,10 @@ Los agentes no se pasan rutas sino **referencias** (`sdd/<change>/spec`, `sdd/<c
 
 Si no querés que el repo acumule nada, `SDD_ARTIFACT_STORE=local` los saca del árbol versionado y `engram` los manda a memoria persistente. El precio es el mismo en los dos casos: `gates.md` deja de estar en el PR, así que el gate deja de ser auditable por el equipo.
 
+Al cerrar, el `archiver` **reconcilia** la spec del change contra el spec de la **capacidad** que toca (`<raíz>/specs/<capacidad>/spec.md`, actualizado in place) y **archiva** la carpeta en `<raíz>/_archive/<fecha>-<slug>/`. Cien features no dejan cien specs vigentes: dejan las capacidades que el producto realmente tiene, más historia fuera del camino.
+
+Y un **gatekeeper** mecánico (hook sobre `Task`) impide lanzar una fase a la que le falta un insumo: sin `02-spec.md` no corre el `designer`, y sin GATE 1 aprobado en `gates.md` no corre el `implementer`. Un agente sin su insumo no falla — inventa.
+
 **Los dos gates son humanos y no se pueden automatizar.** GATE 1 aprueba spec + diseño + plan + amenazas antes de que se escriba una línea de código de producción; el token literal es la palabra `acepto`. GATE 2 decide el merge. Un gate sin registro en `gates.md` no ocurrió.
 
 ### Comandos
@@ -178,7 +182,7 @@ plugins/
     commands/                       # 8 comandos
     skills/                         # sdd-pipeline · strict-tdd · delivery-workflow
     gates/                          # checklists de GATE 1 y GATE 2
-    hooks/                          # guardrails (bash + jq)
+    hooks/                          # guardrails + gatekeeper (bash + jq)
     templates/                      # CLAUDE.md, sdd-hooks.env, skill de invariantes, PR
   stack-typescript/
     skills/                         # 11 skills técnicas

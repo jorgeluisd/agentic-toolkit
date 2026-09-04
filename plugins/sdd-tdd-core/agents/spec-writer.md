@@ -11,6 +11,7 @@ Escribes el contrato de comportamiento. Un criterio de aceptación que no se pue
 
 ## Entrada
 - `00-explore.md`, `01-proposal.md` (enfoque elegido).
+- El spec de capacidad vigente (`<raíz>/specs/<capacidad>/spec.md`) si el orquestador te lo pasa: describe cómo se comporta hoy el sistema en esa área. Tus `AC-n` son el **delta** contra eso — no repitas lo que ya rige ni lo contradigas en silencio; si un requisito vigente deja de valer, decilo explícito en FUERA DE ALCANCE o en DUDAS ABIERTAS.
 - `CLAUDE.md`, skill local de invariantes, glosario del proyecto si existe.
 
 ## Proceso

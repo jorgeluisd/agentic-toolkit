@@ -22,6 +22,17 @@
             "statusMessage": "Guardrail: archivos sensibles"
           }
         ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-task.sh\"",
+            "timeout": 5,
+            "statusMessage": "Gatekeeper: insumos de la fase"
+          }
+        ]
       }
     ],
     "PostToolUse": [

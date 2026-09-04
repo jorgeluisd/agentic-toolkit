@@ -93,7 +93,7 @@ El que planifica no implementa; el que implementa no se revisa a sí mismo. `ver
 
 ## Hooks
 
-Cinco scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corren en cada tool call y no dependen de que el agente coopere.
+Seis scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corren en cada tool call y no dependen de que el agente coopere.
 
 | Hook | Evento | Qué hace |
 |---|---|---|
@@ -101,6 +101,7 @@ Cinco scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corr
 | `post-bash.sh` | `PostToolUse` / `Bash` | Registra evidencia TDD; verifica identidad y trailers del commit |
 | `pre-file.sh` | `PreToolUse` / `Read\|Edit\|Write\|MultiEdit` | Bloquea antes de que nada toque el disco |
 | `post-file.sh` | `PostToolUse` / `Edit\|Write\|MultiEdit` | Devuelve el problema al agente para que corrija |
+| `pre-task.sh` | `PreToolUse` / `Task` | **Gatekeeper de fases**: deniega el lanzamiento de un agente si le falta un insumo requerido |
 | `user-prompt.sh` | `UserPromptSubmit` | Inyecta el recordatorio de clasificar el nivel SDD. Nunca bloquea |
 
 ### Denegado (`deny`)
@@ -122,6 +123,36 @@ Cada corrida de tests se registra en `<raíz>/<feature>/tdd-evidence.log`:
 Con secretos y emails redactados por patrón, y dos marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, y `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"). El `verifier` contrasta la tabla del apply-progress contra este log.
 
 Este log y `docs/sdd/.current` son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
+
+---
+
+## Ciclo de vida de los artefactos
+
+```
+<raíz>/
+  <NNNN>-<slug>/              change en vuelo
+  specs/<capacidad>/spec.md   registro durable, uno por capacidad, in place
+  _archive/<fecha>-<slug>/    changes cerrados
+```
+
+Al cerrar, el `archiver` reconcilia el `02-spec.md` del change contra el spec de la **capacidad** que toca y mueve la carpeta a `_archive/<YYYY-MM-DD>-<slug>/`. Cien features no dejan cien specs vigentes: dejan las capacidades que el producto tiene, deduplicadas, más historia fuera del camino. El registro vivo es `specs/`; un `<NNNN>-<slug>/` suelto en la raíz significa change abierto.
+
+## Gatekeeper de fases
+
+El hook `pre-task` intercepta cada lanzamiento de agente y deniega si falta un insumo. La tabla completa está en `ORCHESTRATOR.md` §3.2; en resumen:
+
+| Fase | Requiere |
+|---|---|
+| `proposer` | `explore` |
+| `spec-writer` | `explore`, `proposal` |
+| `designer` | `explore`, `proposal`, `spec` |
+| `task-planner` | `spec`, `design` |
+| `implementer` | `spec`, `design`, `tasks` **y GATE 1 aprobado** |
+| `verifier` | + `apply-progress`, `evidence` |
+| `code-reviewer` / `security-reviewer` | los artefactos de diseño + `apply-progress` |
+| `archiver` | `gates` |
+
+En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las fases de diseño quedan denegadas por no pertenecer al recorrido. Sin feature activa el hook no interviene.
 
 ---
 

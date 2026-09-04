@@ -34,7 +34,7 @@ Detecta, y muestra en una tabla `valor · evidencia`, cada uno de estos (los arg
 
 ## Paso 2 — Configuración y checkpoint 1
 
-Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `<raíz de artefactos>/.gitkeep` solo si el store es `repo`.
+Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `<raíz de artefactos>/.gitkeep` solo si el store es `repo`. No crees `specs/` ni `_archive/` a mano: los crea el `archiver` al cerrar el primer change (ver `ORCHESTRATOR.md` §3.1).
 
 Escribe `SDD_ARTIFACT_STORE` y, si el store elegido no usa la raíz por defecto, `SDD_ARTIFACTS_DIR`.
 

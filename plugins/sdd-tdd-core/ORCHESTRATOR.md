@@ -56,7 +56,8 @@ Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una refere
 | `sdd/<change>/gates` | `gates.md` | el humano, en cada gate |
 | `sdd/<change>/close` | `08-close.md` | `archiver` |
 | `sdd/<change>/evidence` | `tdd-evidence.log` | hook `post-bash` |
-| `sdd/<change>/state` | `.current` | `task-planner`; lo borra el `archiver` |
+| `sdd/<change>/state` | `.current` | el orquestador al abrir; lo borra el `archiver` |
+| `sdd/<change>/level` | `.level` | el orquestador al abrir (`full` \| `bugfix`); lo lee el gatekeeper |
 
 ### Stores
 
@@ -70,10 +71,24 @@ Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una refere
 
 **Regla de resolución.** Donde este documento, los agentes, los comandos y las skills dicen `docs/sdd/`, se entiende **la raíz de artefactos configurada**. `docs/sdd/` es su valor por defecto y se usa como nombre en la prosa por legibilidad. Si el `CLAUDE.md` del proyecto declara otra raíz en §0, esa manda; los hooks ya la resuelven solos.
 
-Dentro de la raíz, cada change ocupa `<NNNN>-<slug>/` (número correlativo; el slug es el mismo de la rama) y `.current` contiene el nombre de la carpeta activa.
+## 3.1. Ciclo de vida
+
+```
+<raíz>/
+  <NNNN>-<slug>/              change en vuelo (los 9 artefactos + gates.md)
+  specs/<capacidad>/spec.md   registro durable, uno por capacidad, se actualiza in place
+  _archive/<fecha>-<slug>/    changes cerrados, fuera del camino
+  .current                    puntero a la carpeta activa (estado de sesión)
+```
+
+Un change vive en `<NNNN>-<slug>/` (número correlativo; el slug es el mismo de la rama) mientras está en vuelo. Al cerrar, el `archiver` hace dos cosas: **reconcilia** su `02-spec.md` contra el spec de la capacidad que toca y **archiva** la carpeta a `_archive/<YYYY-MM-DD>-<slug>/`.
+
+Esto es lo que evita que el registro crezca sin techo. Cien features no dejan cien specs vigentes: dejan las capacidades que el producto realmente tiene, deduplicadas y actualizadas in place, más cien carpetas de historia que nadie necesita leer para entender el sistema hoy. **El registro vivo es `specs/`; `_archive/` es historia.** Un `<NNNN>-<slug>/` suelto en la raíz significa change abierto.
+
+Archivar es mover, nunca borrar: la poda de `_archive/` es decisión del proyecto, no del proceso.
 
 Reglas:
-- Cada agente recibe **solo** las rutas de los artefactos previos y su tarea; nunca el historial de chat.
+- Cada agente recibe **solo** las referencias de los artefactos previos (resueltas a ruta por el orquestador) y su tarea; nunca el historial de chat ni el cuerpo de un artefacto.
 - Cada artefacto empieza con `RESUMEN` (≤ 10 líneas) para el agente siguiente y termina con `DUDAS ABIERTAS`.
 - Ningún artefacto supera 150 líneas salvo `05-apply-progress.md`.
 - Ningún artefacto contiene datos personales reales, secretos ni identificadores de producción. Los ejemplos son sintéticos. (Hook `guard-pii-artifacts` lo verifica.)
@@ -82,6 +97,29 @@ Reglas:
 - Cada agente escribe su propio artefacto a disco con `Write` (todos lo tienen en su frontmatter). Si un agente devuelve el contenido en su mensaje final en vez de escribirlo, el orquestador no lo persiste por él: lo relanza indicándole la ruta. El contenido de los artefactos no pasa por el contexto del orquestador.
 - `07-review.md` y `07-security.md` son independientes entre sí y del `06-verify.md`; los tres entran juntos al GATE 2.
 - `gates.md` registra cada gate: fecha, quién, veredicto (`APROBADO` / `CAMBIOS` / `RECHAZADO`), token explícito y observaciones. Un gate sin registro no ocurrió.
+
+## 3.2. Insumos por fase y gatekeeper
+
+Cada agente declara qué artefactos necesita. La tabla es el contrato: el orquestador no lanza una fase si falta un insumo **requerido**, porque un agente sin su insumo no falla — inventa.
+
+| Fase | Lee (requerido) | Escribe |
+|---|---|---|
+| `explorer` | — | `explore` |
+| `proposer` | `explore` | `proposal` |
+| `spec-writer` | `explore`, `proposal` | `spec` |
+| `designer` | `explore`, `proposal`, `spec` | `design` |
+| `task-planner` | `spec`, `design` | `tasks` |
+| `implementer` | `spec`, `design`, `tasks`, `gates` con GATE 1 aprobado | `apply-progress` |
+| `verifier` | `spec`, `design`, `tasks`, `apply-progress`, `evidence` | `verify-report` |
+| `code-reviewer` | `spec`, `design`, `tasks`, `apply-progress` + diff | `review` |
+| `security-reviewer` | `spec`, `design`, `apply-progress` + diff | `security` |
+| `archiver` | `gates` + todos los artefactos | `close` |
+
+En nivel `bugfix` el conjunto se reduce: `implementer` lee `explore`; `verifier` lee `apply-progress` + `evidence`; `code-reviewer` lee `apply-progress`. Las fases de diseño no corren.
+
+**El gatekeeper lo hace cumplir.** El hook `pre-task` (`PreToolUse` / `Task`) intercepta el lanzamiento de cada agente del pipeline, resuelve la feature activa y su nivel, y **deniega** si falta un insumo requerido o si el `implementer` va a correr sin GATE 1 aprobado. Fuera del pipeline no interviene: sin `.current` activo, o con un subagente ajeno, no hace nada.
+
+El nivel se declara en `<raíz>/<feature>/.level` (`full` | `bugfix`); lo escribe el orquestador al crear la carpeta. Ausente equivale a `full`, que es el conjunto más estricto.
 
 ## 4. Gates
 
