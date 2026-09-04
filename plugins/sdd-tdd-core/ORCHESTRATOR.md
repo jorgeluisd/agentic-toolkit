@@ -67,7 +67,9 @@ Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una refere
 |---|---|---|
 | `repo` (default) | `docs/sdd/` | Registro versionado y compartido con el equipo. `gates.md` es auditable en el PR |
 | `local` | `.claude/sdd/` | Fuera del registro: el repo queda intacto. Se pierde el compartir con el equipo y la auditoría del gate |
-| `engram` | `.claude/sdd/` | Los artefactos narrativos van a memoria persistente bajo la misma clave `sdd/<change>/<artefacto>`; en disco queda solo lo que los hooks necesitan. Requiere engram instalado |
+| `engram` | `.claude/sdd/` | Los artefactos narrativos van a memoria persistente bajo la misma clave `sdd/<change>/<artefacto>`; en disco queda solo lo que los hooks necesitan. Sin memoria conectada degrada a `local` |
+
+**Degradación del store.** `engram` describe una intención, no una garantía: nada en los hooks puede comprobar que un servidor de memoria esté conectado. Antes de la primera fase, el orquestador verifica que las herramientas de memoria estén realmente disponibles. Si no lo están, **cae a `local`, lo dice en una línea y sigue** — nunca aborta el pipeline ni manda artefactos a un destino que no existe. Los hooks son indiferentes a esto: la evidencia y el estado de sesión van al mismo sitio en los tres stores.
 
 **Regla de resolución.** Donde este documento, los agentes, los comandos y las skills dicen `docs/sdd/`, se entiende **la raíz de artefactos configurada**. `docs/sdd/` es su valor por defecto y se usa como nombre en la prosa por legibilidad. Si el `CLAUDE.md` del proyecto declara otra raíz en §0, esa manda; los hooks ya la resuelven solos.
 

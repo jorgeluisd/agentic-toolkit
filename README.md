@@ -183,6 +183,7 @@ plugins/
     skills/                         # sdd-pipeline · strict-tdd · delivery-workflow
     gates/                          # checklists de GATE 1 y GATE 2
     hooks/                          # guardrails + gatekeeper (bash + jq)
+    tests/e2e.sh                    # 53 aserciones sobre un repo git real
     templates/                      # CLAUDE.md, sdd-hooks.env, skill de invariantes, PR
   stack-typescript/
     skills/                         # 11 skills técnicas
@@ -211,6 +212,16 @@ Versionado semántico por plugin, más una versión del marketplace en `.claude-
 ```bash
 claude plugin marketplace update agentic-toolkit
 ```
+
+---
+
+## Contribuir
+
+```bash
+bash plugins/sdd-tdd-core/tests/e2e.sh   # 53 aserciones, repo de prueba descartable
+```
+
+El CI corre esa suite más `bash -n` y `shellcheck` sobre los hooks, y valida los manifiestos (JSON, que cada hook declarado exista y sea ejecutable, y que el marketplace apunte a plugins reales) en cada push y PR.
 
 ---
 

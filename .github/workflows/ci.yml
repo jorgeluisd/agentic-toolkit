@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hooks:
+    name: hooks · sintaxis y e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sintaxis de los hooks
+        run: |
+          for f in plugins/sdd-tdd-core/hooks/*.sh plugins/sdd-tdd-core/tests/*.sh; do
+            bash -n "$f" || exit 1
+            echo "ok  $f"
+          done
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=error plugins/sdd-tdd-core/hooks/*.sh plugins/sdd-tdd-core/tests/*.sh
+
+      - name: E2E de los hooks sobre un repo real
+        run: bash plugins/sdd-tdd-core/tests/e2e.sh
+
+  manifests:
+    name: manifiestos · JSON y versiones
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JSON válido
+        run: |
+          for f in .claude-plugin/marketplace.json \
+                   plugins/*/.claude-plugin/plugin.json \
+                   plugins/sdd-tdd-core/hooks/hooks.json; do
+            jq empty "$f" || exit 1
+            echo "ok  $f"
+          done
+
+      - name: Cada hook declarado existe y es ejecutable
+        run: |
+          jq -r '.hooks[][] | .hooks[].command' plugins/sdd-tdd-core/hooks/hooks.json \
+            | sed 's|.*/hooks/||; s|"$||' \
+            | while read -r s; do
+                test -x "plugins/sdd-tdd-core/hooks/$s" || { echo "falta o no ejecutable: $s"; exit 1; }
+                echo "ok  $s"
+              done
+
+      - name: El marketplace apunta a plugins que existen
+        run: |
+          jq -r '.plugins[].source' .claude-plugin/marketplace.json \
+            | while read -r p; do
+                test -f "$p/.claude-plugin/plugin.json" || { echo "plugin inexistente: $p"; exit 1; }
+                echo "ok  $p"
+              done
