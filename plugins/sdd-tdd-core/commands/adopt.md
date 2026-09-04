@@ -33,7 +33,17 @@ Detecta, y muestra en una tabla `valor · evidencia`, cada uno de estos (los arg
 
 ## Paso 2 — Configuración y checkpoint 1
 
-Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `docs/sdd/.gitkeep`. Commit `chore(infra): adopt sdd-tdd toolkit settings and hooks config`.
+Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `docs/sdd/.gitkeep`.
+
+Agrega al `.gitignore` del repo (si no están ya) el estado de sesión del pipeline, que no se versiona — ver `ORCHESTRATOR.md` §3:
+
+```gitignore
+# Estado de sesión del pipeline SDD (no es registro durable)
+docs/sdd/.current
+docs/sdd/**/tdd-evidence.log
+```
+
+Si el repo ya tenía alguno de esos archivos commiteado, sácalo del índice conservándolo en disco: `git rm --cached docs/sdd/.current docs/sdd/*/tdd-evidence.log`. Commit `chore(infra): adopt sdd-tdd toolkit settings and hooks config`.
 
 **DETENTE (checkpoint 1)** y pide al humano que pruebe los hooks: leer `.env.local` → negado; escribir un email real en `docs/sdd/_prueba.md` → bloqueado; correr `<test:file>` → línea en `docs/sdd/_unassigned/tdd-evidence.log`; `git push --force` → negado. No sigas sin su confirmación.
 

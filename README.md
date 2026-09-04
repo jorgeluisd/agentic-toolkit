@@ -126,6 +126,8 @@ Hay tres niveles, y el pipeline completo no se paga siempre:
 
 Cada feature deja sus artefactos en `docs/sdd/<NNNN>-<slug>/`, uno por agente, ninguno de más de 150 líneas. Los agentes no se pasan el historial de chat: se pasan rutas de archivos.
 
+Los artefactos **se versionan**: son el registro que justifica el código y que `start-session` y `audit-status` releen después. El estado de sesión no — `docs/sdd/.current` y `docs/sdd/**/tdd-evidence.log` van al `.gitignore` del repo adoptante (los escribe `/adopt`). Tienen que existir en el working tree durante el pipeline, no en el historial.
+
 **Los dos gates son humanos y no se pueden automatizar.** GATE 1 aprueba spec + diseño + plan + amenazas antes de que se escriba una línea de código de producción; el token literal es la palabra `acepto`. GATE 2 decide el merge. Un gate sin registro en `gates.md` no ocurrió.
 
 ### Comandos

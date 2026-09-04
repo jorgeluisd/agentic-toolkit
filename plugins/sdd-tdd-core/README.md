@@ -119,6 +119,8 @@ Cada corrida de tests se registra en `docs/sdd/<feature>/tdd-evidence.log`:
 
 Con secretos y emails redactados por patrón, y dos marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, y `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"). El `verifier` contrasta la tabla del apply-progress contra este log.
 
+Este log y `docs/sdd/.current` son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
+
 ---
 
 ## Plantillas
