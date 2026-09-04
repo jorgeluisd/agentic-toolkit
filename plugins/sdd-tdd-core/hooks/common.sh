@@ -14,6 +14,19 @@ fi
 PROD_MARKERS="${SDD_PROD_MARKERS:-${CLAUDE_PLUGIN_OPTION_PROD_MARKERS:-}}"
 BASE_BRANCH="${SDD_BASE_BRANCH:-${CLAUDE_PLUGIN_OPTION_BASE_BRANCH:-develop}}"
 TENANT_FIELD="${SDD_TENANT_FIELD:-${CLAUDE_PLUGIN_OPTION_TENANT_FIELD:-}}"
+# Store de artefactos: política que siguen los agentes (repo | local | engram).
+# ARTIFACTS_DIR es dónde se materializan los archivos; siempre existe, porque los
+# hooks escriben en disco aunque los artefactos narrativos vivan en memoria.
+# Acepta ruta relativa al proyecto (docs/sdd), absoluta (/tmp/sdd) o con ~.
+ARTIFACT_STORE="${SDD_ARTIFACT_STORE:-${CLAUDE_PLUGIN_OPTION_ARTIFACT_STORE:-repo}}"
+ARTIFACTS_DIR="${SDD_ARTIFACTS_DIR:-${CLAUDE_PLUGIN_OPTION_ARTIFACTS_DIR:-}}"
+[ -z "$ARTIFACTS_DIR" ] && { [ "$ARTIFACT_STORE" = repo ] && ARTIFACTS_DIR="docs/sdd" || ARTIFACTS_DIR=".claude/sdd"; }
+case "$ARTIFACTS_DIR" in
+  "~/"*) ARTIFACTS_ROOT="$HOME/${ARTIFACTS_DIR#\~/}" ;;
+  /*)    ARTIFACTS_ROOT="$ARTIFACTS_DIR" ;;
+  *)     ARTIFACTS_ROOT="$PROJECT_DIR/$ARTIFACTS_DIR" ;;
+esac
+ARTIFACTS_ROOT="${ARTIFACTS_ROOT%/}"
 # Comentarios en código: bloque contiguo máximo y porcentaje máximo de líneas comentadas por archivo.
 COMMENT_MAX_BLOCK="${SDD_COMMENT_MAX_BLOCK:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_BLOCK:-4}}"
 COMMENT_MAX_PCT="${SDD_COMMENT_MAX_PCT:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_PCT:-15}}"

@@ -73,7 +73,7 @@ claude plugin list
 
 ## Configuración
 
-El core lee cinco valores que no puede adivinar. Se pueden declarar en dos lugares, y **el del proyecto siempre gana**:
+El core lee unos pocos valores que no puede adivinar. Se pueden declarar en dos lugares, y **el del proyecto siempre gana**:
 
 1. **`.claude/sdd-hooks.env` del repo** (recomendado, versionado). Copiá la plantilla:
    ```bash
@@ -85,6 +85,8 @@ El core lee cinco valores que no puede adivinar. Se pueden declarar en dos lugar
 
 | Clave (`sdd-hooks.env`) | `userConfig` | Default | Para qué |
 |---|---|---|---|
+| `SDD_ARTIFACT_STORE` | `artifact_store` | `repo` | Dónde viven los artefactos del pipeline: `repo` (versionados en `docs/sdd/`, `gates.md` auditable en el PR), `local` (fuera del registro, en `.claude/sdd/`) o `engram` (memoria persistente) |
+| `SDD_ARTIFACTS_DIR` | `artifacts_dir` | según el store | Raíz donde se materializan los archivos. Relativa al proyecto, absoluta o con `~` |
 | `SDD_BASE_BRANCH` | `base_branch` | `develop` | Rama contra la que se abren PR. El hook de git pide confirmación ante push directo a ella |
 | `SDD_PROD_MARKERS` | `prod_markers` | vacío | Regex extendida que marca un comando como dirigido a producción (refs de base de datos, nombres de app, dominios). Se suma a los patrones genéricos |
 | `SDD_TENANT_FIELD` | `tenant_field` | vacío | Campo de tenant en DTOs y esquema. Vacío = proyecto single-tenant y los checks de tenant se apagan |
@@ -124,9 +126,11 @@ Hay tres niveles, y el pipeline completo no se paga siempre:
 | **Bugfix** | Defecto acotado con test reproducible, sin cambio de contrato ni de esquema | `explorer` → `implementer` → `verifier` ∥ `code-reviewer` → GATE 2 |
 | **Trivial** | Typo, copy, bump de patch sin cambio de API | Commit directo, sin pipeline |
 
-Cada feature deja sus artefactos en `docs/sdd/<NNNN>-<slug>/`, uno por agente, ninguno de más de 150 líneas. Los agentes no se pasan el historial de chat: se pasan rutas de archivos.
+Cada feature deja sus artefactos en `<raíz>/<NNNN>-<slug>/`, uno por agente, ninguno de más de 150 líneas. Los agentes nunca se pasan el historial de chat.
 
-Los artefactos **se versionan**: son el registro que justifica el código y que `start-session` y `audit-status` releen después. El estado de sesión no — `docs/sdd/.current` y `docs/sdd/**/tdd-evidence.log` van al `.gitignore` del repo adoptante (los escribe `/adopt`). Tienen que existir en el working tree durante el pipeline, no en el historial.
+Los agentes no se pasan rutas sino **referencias** (`sdd/<change>/spec`, `sdd/<change>/design`, …); el *store* configurado las resuelve. Con el default `repo` los artefactos se versionan en `docs/sdd/` — son el registro que justifica el código y que `start-session` y `audit-status` releen después — salvo el estado de sesión (`.current` y `tdd-evidence.log`), que va al `.gitignore`.
+
+Si no querés que el repo acumule nada, `SDD_ARTIFACT_STORE=local` los saca del árbol versionado y `engram` los manda a memoria persistente. El precio es el mismo en los dos casos: `gates.md` deja de estar en el PR, así que el gate deja de ser auditable por el equipo.
 
 **Los dos gates son humanos y no se pueden automatizar.** GATE 1 aprueba spec + diseño + plan + amenazas antes de que se escriba una línea de código de producción; el token literal es la palabra `acepto`. GATE 2 decide el merge. Un gate sin registro en `gates.md` no ocurrió.
 

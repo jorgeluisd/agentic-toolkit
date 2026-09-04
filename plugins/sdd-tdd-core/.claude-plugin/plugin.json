@@ -1,7 +1,7 @@
 {
   "name": "sdd-tdd-core",
   "displayName": "SDD/TDD Core",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje: 10 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos en docs/sdd/, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
   "author": {
     "name": "Jorge Diaz",
@@ -18,6 +18,20 @@
     "guardrails"
   ],
   "userConfig": {
+    "artifact_store": {
+      "type": "string",
+      "title": "Store de artefactos",
+      "description": "Donde viven los artefactos del pipeline: repo (versionados en docs/sdd/, auditables en el PR), local (fuera del registro, en .claude/sdd/) o engram (memoria persistente bajo la clave sdd/<change>/<artefacto>). Vacio = repo.",
+      "default": "repo",
+      "required": false
+    },
+    "artifacts_dir": {
+      "type": "string",
+      "title": "Raiz de artefactos",
+      "description": "Ruta donde se materializan los archivos del pipeline. Relativa al proyecto, absoluta o con ~. Vacio = docs/sdd si el store es repo, .claude/sdd en los demas.",
+      "default": "",
+      "required": false
+    },
     "prod_markers": {
       "type": "string",
       "title": "Marcadores de produccion (regex)",

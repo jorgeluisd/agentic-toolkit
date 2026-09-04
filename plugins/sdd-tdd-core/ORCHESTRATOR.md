@@ -40,14 +40,44 @@ El pipeline se dispara igual si el pedido llega por `/sdd-tdd-core:sdd` o en len
 
 ## 3. Protocolo de artefactos
 
-Todo vive en `docs/sdd/<NNNN>-<slug>/` (número correlativo; el slug es el mismo de la rama). `docs/sdd/.current` contiene el nombre de la carpeta activa; lo escribe el `task-planner` y lo leen los hooks.
+Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una referencia es un nombre lógico, `sdd/<change>/<artefacto>`, y el *store* configurado es el que la resuelve a una ubicación concreta. El pipeline se define sobre las referencias; dónde terminan los bytes es decisión del repo, no del proceso.
+
+| Referencia | Artefacto | Lo escribe |
+|---|---|---|
+| `sdd/<change>/explore` | `00-explore.md` | `explorer` |
+| `sdd/<change>/proposal` | `01-proposal.md` | `proposer` |
+| `sdd/<change>/spec` | `02-spec.md` | `spec-writer` |
+| `sdd/<change>/design` | `03-design.md` | `designer` |
+| `sdd/<change>/tasks` | `04-plan.md` | `task-planner` |
+| `sdd/<change>/apply-progress` | `05-apply-progress.md` | `implementer` |
+| `sdd/<change>/verify-report` | `06-verify.md` | `verifier` |
+| `sdd/<change>/review` | `07-review.md` | `code-reviewer` |
+| `sdd/<change>/security` | `07-security.md` | `security-reviewer` |
+| `sdd/<change>/gates` | `gates.md` | el humano, en cada gate |
+| `sdd/<change>/close` | `08-close.md` | `archiver` |
+| `sdd/<change>/evidence` | `tdd-evidence.log` | hook `post-bash` |
+| `sdd/<change>/state` | `.current` | `task-planner`; lo borra el `archiver` |
+
+### Stores
+
+`SDD_ARTIFACT_STORE` elige la política; `SDD_ARTIFACTS_DIR` elige dónde se materializan los archivos. Ambos se declaran en `.claude/sdd-hooks.env` del repo (o el `userConfig` del plugin como fallback).
+
+| Store | Raíz por defecto | Para qué |
+|---|---|---|
+| `repo` (default) | `docs/sdd/` | Registro versionado y compartido con el equipo. `gates.md` es auditable en el PR |
+| `local` | `.claude/sdd/` | Fuera del registro: el repo queda intacto. Se pierde el compartir con el equipo y la auditoría del gate |
+| `engram` | `.claude/sdd/` | Los artefactos narrativos van a memoria persistente bajo la misma clave `sdd/<change>/<artefacto>`; en disco queda solo lo que los hooks necesitan. Requiere engram instalado |
+
+**Regla de resolución.** Donde este documento, los agentes, los comandos y las skills dicen `docs/sdd/`, se entiende **la raíz de artefactos configurada**. `docs/sdd/` es su valor por defecto y se usa como nombre en la prosa por legibilidad. Si el `CLAUDE.md` del proyecto declara otra raíz en §0, esa manda; los hooks ya la resuelven solos.
+
+Dentro de la raíz, cada change ocupa `<NNNN>-<slug>/` (número correlativo; el slug es el mismo de la rama) y `.current` contiene el nombre de la carpeta activa.
 
 Reglas:
 - Cada agente recibe **solo** las rutas de los artefactos previos y su tarea; nunca el historial de chat.
 - Cada artefacto empieza con `RESUMEN` (≤ 10 líneas) para el agente siguiente y termina con `DUDAS ABIERTAS`.
 - Ningún artefacto supera 150 líneas salvo `05-apply-progress.md`.
 - Ningún artefacto contiene datos personales reales, secretos ni identificadores de producción. Los ejemplos son sintéticos. (Hook `guard-pii-artifacts` lo verifica.)
-- **Registro durable vs. estado de sesión.** Los artefactos son registro durable y se versionan: justifican el código y los releen `start-session` y `audit-status` meses después. Dos archivos son estado de sesión y **no se versionan**: `docs/sdd/.current` (puntero a la carpeta activa, lo crea el `task-planner` y lo borra el `archiver`; commitearlo produce conflicto entre features en paralelo sobre un dato que después no significa nada) y `docs/sdd/**/tdd-evidence.log` (append-only, lo genera un hook, nadie lo lee después del GATE 2 y conflictúa ante cualquier escritura concurrente). Ambos tienen que existir en el working tree durante el pipeline — el `verifier` contrasta contra el log — pero no en el historial. El repo adoptante los ignora en su `.gitignore`.
+- **Registro durable vs. estado de sesión.** Los artefactos son registro durable y se versionan: justifican el código y los releen `start-session` y `audit-status` meses después. Dos archivos son estado de sesión y **no se versionan**: `docs/sdd/.current` (puntero a la carpeta activa, lo crea el `task-planner` y lo borra el `archiver`; commitearlo produce conflicto entre features en paralelo sobre un dato que después no significa nada) y `docs/sdd/**/tdd-evidence.log` (append-only, lo genera un hook, nadie lo lee después del GATE 2 y conflictúa ante cualquier escritura concurrente). Ambos tienen que existir en el working tree durante el pipeline — el `verifier` contrasta contra el log — pero no en el historial. Con store `repo`, el repo adoptante ignora esos dos archivos en su `.gitignore`; con `local` o `engram` ignora la raíz entera y la distinción deja de importar.
 - El orquestador no arranca un agente si falta el artefacto previo.
 - Cada agente escribe su propio artefacto a disco con `Write` (todos lo tienen en su frontmatter). Si un agente devuelve el contenido en su mensaje final en vez de escribirlo, el orquestador no lo persiste por él: lo relanza indicándole la ruta. El contenido de los artefactos no pasa por el contexto del orquestador.
 - `07-review.md` y `07-security.md` son independientes entre sí y del `06-verify.md`; los tres entran juntos al GATE 2.

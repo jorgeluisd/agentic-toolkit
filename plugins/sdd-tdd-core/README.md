@@ -21,7 +21,7 @@ Requiere `bash`, `git` y [`jq`](https://jqlang.github.io/jq/) en el `PATH`: los 
 
 ## Configuración
 
-Cinco valores que el plugin no puede adivinar, resueltos en este orden:
+Los valores que el plugin no puede adivinar, resueltos en este orden:
 
 ```
 .claude/sdd-hooks.env del proyecto   →   userConfig del plugin   →   default
@@ -32,6 +32,8 @@ El archivo del proyecto se versiona y es la fuente de verdad para ese repo. El `
 
 | Clave | `userConfig` | Default | Efecto |
 |---|---|---|---|
+| `SDD_ARTIFACT_STORE` | `artifact_store` | `repo` | Política del store de artefactos: `repo`, `local` o `engram`. Ver `ORCHESTRATOR.md` §3 |
+| `SDD_ARTIFACTS_DIR` | `artifacts_dir` | `docs/sdd` con `repo`, `.claude/sdd` con el resto | Raíz donde se materializan los archivos. Relativa al proyecto, absoluta o con `~` |
 | `SDD_BASE_BRANCH` | `base_branch` | `develop` | Rama base del proyecto. El hook pide confirmación ante push directo a ella, y ante merge/rebase que la involucre |
 | `SDD_PROD_MARKERS` | `prod_markers` | vacío | Regex extendida (`grep -E`) que identifica un comando como dirigido a producción. Se suma a los patrones genéricos de deploy y migración |
 | `SDD_TENANT_FIELD` | `tenant_field` | vacío | Campo de tenant. Activa los checks de DTOs sin tenant y de RLS en migraciones. Vacío = single-tenant, checks apagados |
@@ -43,7 +45,7 @@ El archivo del proyecto se versiona y es la fuente de verdad para ese repo. El `
 
 ## Los 10 agentes
 
-Cada agente corre en su propio contexto y recibe **solo** las rutas de los artefactos previos y su tarea, nunca el historial de chat. Cada uno escribe su artefacto a disco.
+Cada agente corre en su propio contexto y recibe **solo** las referencias de los artefactos previos (`sdd/<change>/<artefacto>`) y su tarea, nunca el historial de chat. El store configurado resuelve cada referencia; ver `ORCHESTRATOR.md` §3.
 
 | # | Agente | Responsabilidad | Artefacto |
 |---|---|---|---|
@@ -69,7 +71,7 @@ El que planifica no implementa; el que implementa no se revisa a sí mismo. `ver
 | Comando | Argumentos | Qué hace |
 |---|---|---|
 | `/sdd-tdd-core:sdd` | `<objetivo> [--level=full\|bugfix]` | Ejecuta el pipeline agente por agente, con paradas en los gates |
-| `/sdd-tdd-core:adopt` | `[--base=] [--tenant=] [--prod=] [--skip-pilot]` | Adopta el estándar en el repo actual: 9 pasos, 4 checkpoints humanos |
+| `/sdd-tdd-core:adopt` | `[--base=] [--store=] [--tenant=] [--prod=] [--skip-pilot]` | Adopta el estándar en el repo actual: 9 pasos, 4 checkpoints humanos |
 | `/sdd-tdd-core:start-session` | `[área]` | Lee el estado local (CLAUDE.md, ADRs, backlog, último cierre) antes de tocar código |
 | `/sdd-tdd-core:end-session` | — | Resumen, commits de lo que está en verde, clasificación de hallazgos |
 | `/sdd-tdd-core:check-arch` | — | Typecheck + lint + tests + audit; reporta sin corregir |
@@ -111,7 +113,7 @@ Comandos que parecen dirigidos a producción · push directo a la rama base · m
 
 ### Evidencia TDD
 
-Cada corrida de tests se registra en `docs/sdd/<feature>/tdd-evidence.log`:
+Cada corrida de tests se registra en `<raíz>/<feature>/tdd-evidence.log`:
 
 ```
 2026-09-04T01:12:44Z | exit=0 | pnpm test orders | Tests 12 passed (12) Test Files 3 passed

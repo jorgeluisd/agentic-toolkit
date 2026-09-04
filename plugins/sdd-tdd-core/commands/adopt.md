@@ -1,6 +1,6 @@
 ---
 description: Adopta el estándar SDD+TDD en el repositorio actual de punta a punta (configuración, CLAUDE.md, skill de invariantes, lint, CI, feature piloto y limpieza de lo viejo), detectando los valores del proyecto y deteniéndose en cuatro checkpoints humanos.
-argument-hint: "[--base=<rama>] [--tenant=<campo>|none] [--prod=<regex>] [--informe=<ruta>] [--skip-pilot]"
+argument-hint: "[--base=<rama>] [--store=repo|local|engram] [--tenant=<campo>|none] [--prod=<regex>] [--informe=<ruta>] [--skip-pilot]"
 ---
 
 Migra este repositorio al estándar que definen `sdd-tdd-core` y el plugin de stack instalado. Trabajas en una rama `chore/adopt-sdd-toolkit` creada desde la rama base. Hasta el paso 8 conviven el orquestador, comandos y skills viejos del repo con los del plugin: **no uses los viejos**. No borras nada de `.claude/` antes del paso 8.
@@ -18,6 +18,7 @@ Detecta, y muestra en una tabla `valor · evidencia`, cada uno de estos (los arg
 | Clave | Cómo se detecta |
 |---|---|
 | Rama base | `--base`; si no, `develop` si existe en `origin`, si no `main` |
+| Store de artefactos | `--store=repo\|local\|engram`; si no, `repo`. Propón `local` si el repo es de una sola persona (un solo autor en `git shortlog -sn`) y `engram` solo si engram está instalado. Di en una línea qué se pierde con el elegido: `local` y `engram` sacan `gates.md` del PR, así que el gate deja de ser auditable por el equipo |
 | Campo de tenant | `--tenant`; si no, grep en esquema/migraciones/SQL de columnas `tenant_id`, `organization_id`, `company_id`, `salon_id`, `clinic_id`, `<dominio>_id` que aparezcan en muchas tablas; `none` si es single-tenant |
 | Marcadores de producción | `--prod`; si no, refs de proyecto en URLs `*.supabase.co`, nombres de app en `fly*.toml`, proyectos en `vercel.json`, hosts de base de datos en CI/docs, **nombres** de archivos `.env.*prod*`; compón una regex `grep -E` con alternativas `|` |
 | Comandos simbólicos | `<install> <lint> <typecheck> <test> <test:file> <test:integration> <build> <audit>` desde los scripts del gestor de paquetes |
@@ -33,9 +34,11 @@ Detecta, y muestra en una tabla `valor · evidencia`, cada uno de estos (los arg
 
 ## Paso 2 — Configuración y checkpoint 1
 
-Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `docs/sdd/.gitkeep`.
+Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `<raíz de artefactos>/.gitkeep` solo si el store es `repo`.
 
-Agrega al `.gitignore` del repo (si no están ya) el estado de sesión del pipeline, que no se versiona — ver `ORCHESTRATOR.md` §3:
+Escribe `SDD_ARTIFACT_STORE` y, si el store elegido no usa la raíz por defecto, `SDD_ARTIFACTS_DIR`.
+
+Agrega al `.gitignore` lo que corresponda al store (ver `ORCHESTRATOR.md` §3). Con `repo`, solo el estado de sesión:
 
 ```gitignore
 # Estado de sesión del pipeline SDD (no es registro durable)
@@ -43,9 +46,16 @@ docs/sdd/.current
 docs/sdd/**/tdd-evidence.log
 ```
 
-Si el repo ya tenía alguno de esos archivos commiteado, sácalo del índice conservándolo en disco: `git rm --cached docs/sdd/.current docs/sdd/*/tdd-evidence.log`. Commit `chore(infra): adopt sdd-tdd toolkit settings and hooks config`.
+Con `local` o `engram`, la raíz entera — y entonces el `.gitkeep` no se crea:
 
-**DETENTE (checkpoint 1)** y pide al humano que pruebe los hooks: leer `.env.local` → negado; escribir un email real en `docs/sdd/_prueba.md` → bloqueado; correr `<test:file>` → línea en `docs/sdd/_unassigned/tdd-evidence.log`; `git push --force` → negado. No sigas sin su confirmación.
+```gitignore
+# Artefactos del pipeline SDD (fuera del registro versionado)
+.claude/sdd/
+```
+
+Si el repo ya tenía artefactos commiteados que el nuevo store deja fuera, sácalos del índice conservándolos en disco (`git rm -r --cached <raíz>` o los dos archivos de estado según el caso). Commit `chore(infra): adopt sdd-tdd toolkit settings and hooks config`.
+
+**DETENTE (checkpoint 1)** y pide al humano que pruebe los hooks: leer `.env.local` → negado; escribir un email real en `<raíz>/_prueba.md` → bloqueado; correr `<test:file>` → línea en `<raíz>/_unassigned/tdd-evidence.log` (la raíz es la que quedó configurada); `git push --force` → negado. No sigas sin su confirmación.
 
 ## Paso 3 — CLAUDE.md
 

@@ -10,7 +10,7 @@
 |---|---|
 | Decisiones (ADR) | `docs/adr/` (formato `ADR-NNNN-<slug>.md`, estados PROPUESTO/ACEPTADO/REEMPLAZADO) |
 | Plan / backlog | `docs/ROADMAP.md` · `docs/BACKLOG.md` (IDs `<PREFIJO>-NNN`) |
-| Features SDD | `docs/sdd/<NNNN>-<slug>/` (se versiona; `.current` y `tdd-evidence.log` no — van al `.gitignore`) |
+| Features SDD | Store `<repo\|local\|engram>`, raíz `<docs/sdd/>` — es la que resuelven los agentes y los hooks. Con `repo` se versiona, salvo `.current` y `tdd-evidence.log`, que van al `.gitignore` |
 | Invariantes de producto | `.claude/skills/<producto>-invariants/SKILL.md` |
 
 ## 1. Producto en 3 líneas

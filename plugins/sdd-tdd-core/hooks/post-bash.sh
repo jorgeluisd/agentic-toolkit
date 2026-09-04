@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # PostToolUse/Bash — evidencia TDD mecánica + verificación post-commit.
-# Registra cada corrida de tests en docs/sdd/<feature>/tdd-evidence.log con:
+# Registra cada corrida de tests en <raíz de artefactos>/<feature>/tdd-evidence.log:
 #   <ISO-8601> | exit=<n> | <comando> | <resumen>
-# La carpeta activa se lee de docs/sdd/.current (la escribe el task-planner).
+# La raíz la resuelve common.sh (SDD_ARTIFACTS_DIR, default docs/sdd); la carpeta
+# activa se lee de <raíz>/.current (la escribe el task-planner).
 . "$(dirname "$0")/common.sh"
 read_input
 cmd="$(jq_get '.tool_input.command')"
@@ -23,7 +24,7 @@ if is_test_run "$cmd"; then
     if printf '%s' "$all" | grep -Eq '([1-9][0-9]*[[:space:]]+failed|FAIL(ED|URES)?[[:space:]:]|error TS[0-9]+|Error:|ERR_|\[ERROR\]|Tests failed|test result: FAILED)'; then code=1; else code=0; fi
   fi
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  sdd="$PROJECT_DIR/docs/sdd"
+  sdd="$ARTIFACTS_ROOT"
   if [ -f "$sdd/.current" ]; then
     dir="$sdd/$(tr -d '[:space:]' < "$sdd/.current")"
   else
