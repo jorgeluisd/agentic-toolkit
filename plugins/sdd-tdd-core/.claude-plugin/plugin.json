@@ -7,7 +7,7 @@
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "keywords": [
     "sdd",
     "tdd",
@@ -60,5 +60,7 @@
       "default": "15",
       "required": false
     }
-  }
+  },
+  "homepage": "https://github.com/jorgeluisd/agentic-toolkit",
+  "repository": "https://github.com/jorgeluisd/agentic-toolkit"
 }

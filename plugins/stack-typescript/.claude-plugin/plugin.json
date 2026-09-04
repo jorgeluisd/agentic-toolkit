@@ -7,7 +7,7 @@
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "keywords": [
     "typescript",
     "nestjs",
@@ -18,5 +18,7 @@
     "vitest",
     "onion-architecture",
     "screaming-architecture"
-  ]
+  ],
+  "homepage": "https://github.com/jorgeluisd/agentic-toolkit",
+  "repository": "https://github.com/jorgeluisd/agentic-toolkit"
 }
