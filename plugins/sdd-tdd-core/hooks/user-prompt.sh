@@ -2,6 +2,10 @@
 # UserPromptSubmit — si el mensaje del usuario parece un pedido de cambio de código y no es un
 # comando, agrega al contexto un recordatorio de que el cambio va por el pipeline SDD.
 # Solo inyecta contexto; nunca bloquea.
+. "$(dirname "$0")/common.sh"
+# Última oportunidad de conciliar: si el turno anterior terminó con una corrida de
+# tests fallida, no habrá otro hook de Bash hasta que el humano vuelva a hablar.
+flush_pending_test
 input="$(cat)"
 prompt="$(printf '%s' "$input" | jq -r '.prompt // ""' 2>/dev/null)"
 [ -z "$prompt" ] && exit 0

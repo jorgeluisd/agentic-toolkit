@@ -54,7 +54,9 @@ EOF
 cat > "$R/.gitignore" <<'EOF'
 node_modules/
 docs/sdd/.current
+docs/sdd/.hook-errors.log
 docs/sdd/**/tdd-evidence.log
+docs/sdd/**/.tdd-pending
 EOF
 printf 'SDD_BASE_BRANCH=develop\n' > "$R/.claude/sdd-hooks.env"
 printf 'SECRET=x\n' > "$R/.env"
@@ -138,10 +140,54 @@ hook post-bash.sh "$(jq -nc --arg c "npm test" --arg o "$OUT" --argjson e "$CODE
   '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:$o,exit_code:$e}}')" >/dev/null
 t "log escrito en la carpeta activa ($SRC)" "$(yn "$F/tdd-evidence.log")"                 si
 t "registra exit=0"                         "$(grep -c 'exit=0' "$F/tdd-evidence.log")"   1
+# El payload real de PostToolUse no trae exit_code (solo stdout/stderr/interrupted):
+# el código se infiere de la salida. Se ejercita esa forma, no solo la enriquecida.
+: > "$F/tdd-evidence.log"
+hook post-bash.sh "$(jq -nc --arg c "npm test" --arg o "1 failed" \
+  '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:$o,stderr:"",interrupted:false}}')" >/dev/null
+t "sin exit_code, infiere el fallo"         "$(grep -c 'exit=1' "$F/tdd-evidence.log")"   1
+# Se restituye la corrida verde: el gatekeeper del verifier exige evidencia real.
+: > "$F/tdd-evidence.log"
+hook post-bash.sh "$(jq -nc --arg c "npm test" --arg o "$OUT" --argjson e "$CODE" \
+  '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:$o,exit_code:$e}}')" >/dev/null
 t "verifier sin apply-progress"             "$(task verifier)"                            deny
 printf 'RESUMEN\n' > "$F/05-apply-progress.md"
 t "verifier con evidencia y progreso"       "$(task verifier)"                            allow
 t "code-reviewer con los artefactos"        "$(task code-reviewer)"                       allow
+
+sec "Corrida de tests sin resultado · PostToolUse no se entrega si el comando falla"
+# El harness solo manda PostToolUse cuando la llamada Bash termina en 0, así que el
+# RED del ciclo nunca llegaría al hook de evidencia. pre-bash deja la corrida marcada
+# y el hook siguiente la concilia. Se simula sin invocar post-bash.
+: > "$F/tdd-evidence.log"; rm -f "$F/.tdd-pending"
+cmd 'pnpm vitest run src/order.spec.ts' >/dev/null
+t "pre-bash marca la corrida"              "$(yn "$F/.tdd-pending")"                                si
+t "todavía no hay línea en el log"         "$(grep -c . "$F/tdd-evidence.log")"                     0
+cmd 'ls -la' >/dev/null
+t "el hook siguiente concilia"             "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             1
+t "conserva el comando conciliado"         "$(grep -c 'order.spec.ts' "$F/tdd-evidence.log")"       1
+t "la marca se consume"                    "$(yn "$F/.tdd-pending")"                                no
+cmd 'ls -la' >/dev/null
+t "no se duplica en la siguiente llamada"  "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             1
+
+: > "$F/tdd-evidence.log"; rm -f "$F/.tdd-pending"
+cmd 'pnpm vitest run src/order.spec.ts' >/dev/null
+hook post-bash.sh "$(jq -nc --arg c 'pnpm vitest run src/order.spec.ts' \
+  '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:"Tests  3 passed (3)",stderr:""}}')" >/dev/null
+t "con resultado real, la marca se limpia" "$(yn "$F/.tdd-pending")"                                no
+t "y no queda corrida sin resultado"       "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             0
+t "queda la línea con el resultado"        "$(grep -c 'exit=0' "$F/tdd-evidence.log")"              1
+
+: > "$F/tdd-evidence.log"; rm -f "$F/.tdd-pending"
+cmd 'git push origin develop' >/dev/null
+t "un ask no marca corrida"                "$(yn "$F/.tdd-pending")"                                no
+
+sec "Un payload ilegible deja diagnóstico, no silencio"
+rm -f "$SDD/.hook-errors.log"
+hook post-bash.sh 'esto no es json' >/dev/null
+t "registra el payload ilegible"           "$(grep -c 'ilegible' "$SDD/.hook-errors.log")"          1
+t "no inventa evidencia"                   "$(grep -c . "$F/tdd-evidence.log")"                     0
+rm -f "$SDD/.hook-errors.log"
 
 sec "Alcance del test · dirigido vs suite completa"
 # shellcheck source=/dev/null
@@ -154,6 +200,17 @@ t "archivo .spec.ts nombrado"              "$(tgt 'vitest run src/x.spec.ts')"  
 t "filtro -t de caso"                      "$(tgt 'vitest run x.spec.ts -t \"crea\"')"             dirigido
 t "pytest con archivo"                     "$(tgt 'pytest tests/test_orders.py')"                  dirigido
 t "go test ./..."                          "$(tgt 'go test ./...')"                                suite
+
+sec "Detección de la corrida · comandos agregados de gate"
+det(){ if is_test_run "$1"; then echo test; else echo no; fi; }
+t "pnpm check"                             "$(det 'pnpm check')"                    test
+t "pnpm run check"                         "$(det 'pnpm run check')"                test
+t "pnpm verify"                            "$(det 'pnpm verify')"                   test
+t "pnpm validate"                          "$(det 'pnpm validate')"                 test
+t "pnpm run ci"                            "$(det 'pnpm run ci')"                   test
+t "npm ci instala, no corre tests"         "$(det 'npm ci')"                        no
+t "pnpm checkout no es un gate"            "$(det 'pnpm exec checkly deploy')"      no
+t "echo pnpm check no es evidencia"        "$(det 'echo "pnpm check"')"             no
 
 sec "WARN de suite completa a mitad de ciclo"
 ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --argjson e "$3" \
@@ -201,6 +258,8 @@ sec "Qué versiona git"
 git -C "$R" add -A >/dev/null 2>&1
 TRK="$(git -C "$R" ls-files docs/sdd)"
 t "tdd-evidence.log ignorado"              "$(printf '%s' "$TRK" | grep -c 'tdd-evidence' || true)"   0
+t ".tdd-pending ignorado"                  "$(printf '%s' "$TRK" | grep -c 'tdd-pending' || true)"   0
+t ".hook-errors.log ignorado"              "$(printf '%s' "$TRK" | grep -c 'hook-errors' || true)"   0
 t "spec de capacidad versionado"           "$(printf '%s' "$TRK" | grep -c 'specs/pedidos' || true)"  1
 t "gates.md archivado versionado"          "$(printf '%s' "$TRK" | grep -c '_archive/.*gates' || true)" 1
 

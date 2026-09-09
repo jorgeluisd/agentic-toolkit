@@ -8,6 +8,10 @@ cmd="$(jq_get '.tool_input.command')"
 [ -z "$cmd" ] && exit 0
 lc="$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')"
 
+# 0) Conciliar la corrida anterior: si quedó marcada y sin resultado, PostToolUse
+# nunca llegó, o sea que terminó en error. Se registra antes de marcar la nueva.
+flush_pending_test
+
 # 1) Producción: marcadores del proyecto (userConfig) + patrones genéricos.
 prod=0
 if [ -n "$PROD_MARKERS" ] && printf '%s' "$cmd" | grep -Eq "$PROD_MARKERS"; then prod=1; fi
@@ -61,4 +65,11 @@ fi
 if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])(cat|less|more|head|tail|bat|code|vim|nano|open)[[:space:]].*\.env($|\.[a-z.]+)' && ! printf '%s' "$lc" | grep -q '\.env\.example'; then
   deny "Prohibido leer archivos .env* (solo .env.example). Los secretos no entran al contexto del agente."; exit 0
 fi
+
+# 4) El comando se permite y va a correr. Si es una corrida de tests se deja marcada:
+# es el único registro que queda si termina en error, porque PostToolUse no se
+# entrega en ese caso. Va al final a propósito — una rama ask/deny sale antes y no
+# marca nada, así un comando que el humano rechaza no deja evidencia de una corrida
+# que nunca ocurrió.
+is_test_run "$cmd" && mark_pending_test "$cmd"
 exit 0
