@@ -2,13 +2,28 @@
 # PostToolUse/Bash — evidencia TDD mecánica + verificación post-commit.
 # Registra cada corrida de tests en <raíz de artefactos>/<feature>/tdd-evidence.log:
 #   <ISO-8601> | exit=<n> | <comando> | <resumen>
+# El harness solo entrega este evento cuando la llamada Bash termina en 0, así que
+# las corridas que fallan las concilia `flush_pending_test` desde pre-bash.sh y
+# user-prompt.sh, con exit=!0 (ver common.sh).
 # La raíz la resuelve common.sh (SDD_ARTIFACTS_DIR, default docs/sdd); la carpeta
 # activa se lee de <raíz>/.current (la escribe el task-planner).
 . "$(dirname "$0")/common.sh"
 read_input
+# Un payload que no se puede leer no puede salir en silencio: sin esta traza el
+# hook devuelve 0 sin escribir nada y es indistinguible de "no había tests".
+if [ -n "$INPUT" ] && ! printf '%s' "$INPUT" | jq -e . >/dev/null 2>&1; then
+  hook_diag "post-bash: payload de PostToolUse ilegible para jq; no se registró evidencia de esta llamada"
+  exit 0
+fi
 cmd="$(jq_get '.tool_input.command')"
-[ -z "$cmd" ] && exit 0
+if [ -z "$cmd" ]; then
+  [ -n "$INPUT" ] && hook_diag "post-bash: payload sin .tool_input.command; no se registró evidencia de esta llamada"
+  exit 0
+fi
 lc="$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')"
+
+# Llegó el resultado de esta corrida: la marca que dejó PreToolUse ya no hace falta.
+clear_pending_test
 
 # 1) Evidencia de tests.
 if is_test_run "$cmd"; then
@@ -24,12 +39,7 @@ if is_test_run "$cmd"; then
     if printf '%s' "$all" | grep -Eq '([1-9][0-9]*[[:space:]]+failed|FAIL(ED|URES)?[[:space:]:]|error TS[0-9]+|Error:|ERR_|\[ERROR\]|Tests failed|test result: FAILED)'; then code=1; else code=0; fi
   fi
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  sdd="$ARTIFACTS_ROOT"
-  if [ -f "$sdd/.current" ]; then
-    dir="$sdd/$(tr -d '[:space:]' < "$sdd/.current")"
-  else
-    dir="$sdd/_unassigned"
-  fi
+  dir="$(evidence_dir)"
   mkdir -p "$dir" 2>/dev/null
   # Nunca registrar secretos ni datos personales en el log: se limpian por patrón.
   safe_cmd="$(printf '%s' "$cmd" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)"
@@ -50,7 +60,8 @@ if is_test_run "$cmd"; then
   if ! is_targeted_run "$cmd" && [ -s "$dir/tdd-evidence.log" ]; then
     prev="$(tail -n 1 "$dir/tdd-evidence.log")"
     prev_cmd="$(printf '%s' "$prev" | cut -d'|' -f3)"
-    prev_exit="$(printf '%s' "$prev" | cut -d'|' -f2 | tr -dc '0-9')"
+    prev_exit="$(printf '%s' "$prev" | cut -d'|' -f2 | tr -d '[:space:]')"
+    prev_exit="${prev_exit#exit=}"
     if [ "${prev_exit:-0}" != 0 ] && is_targeted_run "$prev_cmd"; then
       warn="${warn}full-suite-mid-cycle;"
     fi

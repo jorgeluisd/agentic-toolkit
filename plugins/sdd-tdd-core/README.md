@@ -119,11 +119,14 @@ Cada corrida de tests se registra en `<raíz>/<feature>/tdd-evidence.log`:
 
 ```
 2026-09-04T01:12:44Z | exit=0 | pnpm test orders | Tests 12 passed (12) Test Files 3 passed
+2026-09-04T01:14:02Z | exit=!0 | pnpm vitest run order.spec.ts | sin salida capturada | WARN=resultado-inferido-por-ausencia-de-PostToolUse
 ```
+
+La segunda forma es una corrida que **falló**. El harness solo entrega `PostToolUse` cuando la llamada Bash termina en 0, así que el RED del ciclo —la evidencia más importante— nunca llegaría al hook. `PreToolUse`, que sí se ejecuta siempre, deja la corrida marcada en `<raíz>/<feature>/.tdd-pending` antes de lanzarla; el hook siguiente (otro Bash o el `UserPromptSubmit` del turno) la concilia: si el resultado llegó, la marca se descarta; si no llegó, esa ausencia es el dato y se registra con `exit=!0`. Se pierde el resumen del runner, no el hecho de que la corrida terminó en rojo.
 
 Con secretos y emails redactados por patrón, y tres marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"), y `WARN=full-suite-mid-cycle` si se corrió la suite completa con un RED abierto — la suite es del cierre de tarea y del `verifier`, no del ciclo interno, y cuesta unas 3× más por corrida. El `verifier` contrasta la tabla del apply-progress contra este log.
 
-Este log y `docs/sdd/.current` son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
+Este log, `docs/sdd/.current`, `<feature>/.tdd-pending` y `docs/sdd/.hook-errors.log` (donde los hooks anotan un payload que no pudieron leer, en vez de salir en silencio) son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
 
 ### Límites conocidos de los detectores
 
@@ -140,6 +143,8 @@ Los guardrails son regex sobre el contenido que el agente va a escribir. Cubren 
 | Detecta | No detecta |
 |---|---|
 | Emails que no sean `@example.com/org/net`, `@test.local` o `@localhost` · Teléfonos en formato internacional (`+` y 8–15 dígitos) | Nombres y apellidos, direcciones, documentos nacionales (RUT, DNI, CUIT, CPF, NIF), tarjetas, fechas de nacimiento, IPs, **teléfonos en formato local** (`11 5555-5555` no matchea) |
+
+**Corridas de tests** — `SDD_TEST_CMD_RE` reconoce los runners de cada stack y los comandos agregados de gate (`pnpm|npm|yarn|bun|turbo` + `test`, `check`, `verify`, `validate`, `run ci`). `npm ci` queda fuera a propósito: instala dependencias. Un alias propio (`pnpm gate`, `make qa`) no se reconoce sin declarar `SDD_TEST_CMD_RE` en `.claude/sdd-hooks.env`. En el otro sentido, un comando que solo *menciona* una corrida dentro de un heredoc puede contarse como evidencia; la línea sale marcada con `WARN=no-tests-ran` y el `verifier` la descarta.
 
 Hoy ampliarlos requiere editar `hooks/common.sh` (`SECRET_RE`, `PHONE_RE`) en una copia del plugin: no hay clave de configuración para patrones propios. Si tu proyecto maneja documentos nacionales o teléfonos locales, es el primer lugar donde mirar.
 

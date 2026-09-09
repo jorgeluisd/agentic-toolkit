@@ -90,7 +90,7 @@ El core lee unos pocos valores que no puede adivinar. Se pueden declarar en dos 
 | `SDD_BASE_BRANCH` | `base_branch` | `develop` | Rama contra la que se abren PR. El hook de git pide confirmación ante push directo a ella |
 | `SDD_PROD_MARKERS` | `prod_markers` | vacío | Regex extendida que marca un comando como dirigido a producción (refs de base de datos, nombres de app, dominios). Se suma a los patrones genéricos |
 | `SDD_TENANT_FIELD` | `tenant_field` | vacío | Campo de tenant en DTOs y esquema. Vacío = proyecto single-tenant y los checks de tenant se apagan |
-| `SDD_TEST_CMD_RE` | `test_cmd_re` | multi-stack | Regex que reconoce una corrida de tests para la evidencia TDD. El default ya cubre vitest, jest, pytest, phpunit, pest, go test, cargo test, dotnet test, mvn/gradle |
+| `SDD_TEST_CMD_RE` | `test_cmd_re` | multi-stack | Regex que reconoce una corrida de tests para la evidencia TDD. El default ya cubre vitest, jest, pytest, phpunit, pest, go test, cargo test, dotnet test, mvn/gradle y los comandos agregados de gate (`check`, `verify`, `validate`, `run ci`) |
 | `SDD_PROGRESS_KEEP_TASKS` | `progress_keep_tasks` | `10` | Tareas que conserva `05-apply-progress.md` antes de rotar el detalle viejo a un archivo aparte |
 | `SDD_COMMENT_MAX_BLOCK` / `SDD_COMMENT_MAX_PCT` | `comment_max_block` / `comment_max_pct` | `4` / `15` | Límite de comentarios en código fuente. Tests, migraciones, configs y `scripts/` quedan exentos |
 
@@ -170,7 +170,7 @@ Lo que **pide confirmación humana** (`ask`): comandos que parecen dirigidos a p
 
 **Lo que no ven.** Son regex: los secretos se detectan en cinco formas (`sk-`, JWT, `postgres://user:pass@`, `AKIA`, claves privadas PEM) y los datos personales solo como emails no sintéticos y teléfonos en formato internacional. Quedan fuera los tokens de GitHub o Slack, las API keys genéricas, los documentos nacionales y los teléfonos locales. El detalle completo del borde está en la [referencia del core](plugins/sdd-tdd-core/README.md#límites-conocidos-de-los-detectores) — vale leerlo antes de confiarles material sensible.
 
-Y lo que **registra**: cada corrida de tests va a `docs/sdd/<feature>/tdd-evidence.log` con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
+Y lo que **registra**: cada corrida de tests va a `docs/sdd/<feature>/tdd-evidence.log` con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. Las corridas que fallan las concilia `PreToolUse` y quedan como `exit=!0`, porque el harness no entrega `PostToolUse` cuando la llamada Bash termina en error. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
 
 ---
 

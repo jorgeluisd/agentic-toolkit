@@ -37,7 +37,10 @@ COMMENT_MAX_BLOCK="${SDD_COMMENT_MAX_BLOCK:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_B
 COMMENT_MAX_PCT="${SDD_COMMENT_MAX_PCT:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_PCT:-15}}"
 # Regex que reconoce una corrida de tests (evidencia TDD). Default multi-stack.
 TEST_CMD_RE="${SDD_TEST_CMD_RE:-${CLAUDE_PLUGIN_OPTION_TEST_CMD_RE:-}}"
-[ -z "$TEST_CMD_RE" ] && TEST_CMD_RE='(vitest|jest|mocha|(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test|turbo[[:space:]]+(run[[:space:]]+)?test|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|$)|artisan[[:space:]]+test|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)'
+# Incluye los comandos *agregados* de gate (check, verify, validate, run ci): en la
+# mayoría de los repos son los que de verdad corren la suite. `npm ci` queda fuera a
+# propósito — instala dependencias, no corre tests — por eso `ci` exige `run` delante.
+[ -z "$TEST_CMD_RE" ] && TEST_CMD_RE='(vitest|jest|mocha|(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test|turbo[[:space:]]+(run[[:space:]]+)?test|(pnpm|npm|yarn|bun|turbo)[[:space:]]+(run[[:space:]]+)?(check|verify|validate)([[:space:]:]|$)|(pnpm|npm|yarn|bun|turbo)[[:space:]]+run[[:space:]]+ci([[:space:]:]|$)|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|$)|artisan[[:space:]]+test|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)'
 # is_test_run <comando>: 0 si alguno de los segmentos del comando ejecuta tests.
 # Quita cadenas entre comillas y descarta segmentos cuyo primer verbo es de
 # impresión/lectura (echo, printf, cat, grep, git, sed...) para que "echo pnpm test"
@@ -69,6 +72,54 @@ is_targeted_run() {
   # Un filtro de caso por nombre.
   printf '%s' "$c" | grep -Eq '(^|[[:space:]])(-t|-k|-run|--testnamepattern|--filter-name|--grep)([[:space:]]|=)' && return 0
   return 1
+}
+
+# evidence_dir: carpeta activa de artefactos donde se materializa la evidencia.
+evidence_dir() {
+  if [ -f "$ARTIFACTS_ROOT/.current" ]; then
+    printf '%s/%s' "$ARTIFACTS_ROOT" "$(tr -d '[:space:]' < "$ARTIFACTS_ROOT/.current")"
+  else
+    printf '%s/_unassigned' "$ARTIFACTS_ROOT"
+  fi
+}
+
+# hook_diag <mensaje>: un hook que no puede hacer su trabajo lo deja escrito. Sin
+# esto un payload ilegible sale con exit 0 y es indistinguible de "no había nada
+# que registrar", que es justo la ambigüedad que la evidencia mecánica evita.
+hook_diag() {
+  mkdir -p "$ARTIFACTS_ROOT" 2>/dev/null || return 0
+  printf '%s | %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$ARTIFACTS_ROOT/.hook-errors.log" 2>/dev/null
+}
+
+# Corrida de tests pendiente de resultado.
+#
+# El harness solo entrega PostToolUse cuando la llamada Bash termina en 0. Una
+# corrida que falla —el RED del ciclo, la evidencia más importante— nunca llega al
+# hook de evidencia. PreToolUse en cambio se ejecuta siempre, así que deja la
+# corrida marcada antes de lanzarla y el siguiente hook que corra la concilia:
+# si PostToolUse llegó, la marca se limpia con el resultado real; si no llegó, la
+# ausencia misma es el dato (la corrida falló o fue interrumpida) y se registra.
+pending_file() { printf '%s/.tdd-pending' "$(evidence_dir)"; }
+
+mark_pending_test() {
+  local dir; dir="$(evidence_dir)"
+  mkdir -p "$dir" 2>/dev/null || return 0
+  printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$(printf '%s' "$1" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)" \
+    > "$dir/.tdd-pending" 2>/dev/null
+}
+
+clear_pending_test() { rm -f "$(pending_file)" 2>/dev/null; return 0; }
+
+flush_pending_test() {
+  local dir f ts cmd
+  dir="$(evidence_dir)"; f="$dir/.tdd-pending"
+  [ -s "$f" ] || return 0
+  ts="$(cut -f1 < "$f")"; cmd="$(cut -f2- < "$f")"
+  rm -f "$f" 2>/dev/null
+  printf '%s | exit=!0 | %s | sin salida capturada | WARN=resultado-inferido-por-ausencia-de-PostToolUse\n' \
+    "$ts" "$cmd" >> "$dir/tdd-evidence.log" 2>/dev/null
+  return 0
 }
 
 # Gestor de paquetes JS del proyecto (para el guardrail npm/yarn): solo aplica si hay pnpm-lock.yaml.
