@@ -3,11 +3,13 @@
 # comando, agrega al contexto un recordatorio de que el cambio va por el pipeline SDD.
 # Solo inyecta contexto; nunca bloquea.
 . "$(dirname "$0")/common.sh"
+# Se lee antes de conciliar: el payload trae el cwd, que es lo que ancla la raíz
+# del proyecto cuando la sesión se abrió fuera del repositorio.
+read_input
 # Última oportunidad de conciliar: si el turno anterior terminó con una corrida de
 # tests fallida, no habrá otro hook de Bash hasta que el humano vuelva a hablar.
 flush_pending_test
-input="$(cat)"
-prompt="$(printf '%s' "$input" | jq -r '.prompt // ""' 2>/dev/null)"
+prompt="$(printf '%s' "$INPUT" | jq -r '.prompt // ""' 2>/dev/null)"
 [ -z "$prompt" ] && exit 0
 case "$prompt" in /*) exit 0 ;; esac
 lc="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
