@@ -30,6 +30,8 @@ Los valores que el plugin no puede adivinar, resueltos en este orden:
 
 El archivo del proyecto se versiona y es la fuente de verdad para ese repo. El `userConfig` existe para instalaciones a nivel de usuario compartidas por varios repos. Plantilla en [`templates/sdd-hooks.env`](templates/sdd-hooks.env).
 
+**Qué repositorio es "el proyecto".** No la raíz de la sesión: la sesión puede abrirse en una carpeta que contiene varios repositorios, y ahí no hay configuración que cargar. Cada hook se ancla en lo que la herramienta está tocando y sube hasta el primer directorio con `.claude/sdd-hooks.env` y, si no hay ninguno, con `.git` (worktrees y submódulos resuelven a su propia raíz). Las anclas, por orden: el `file_path` del Write/Edit, la primera ruta absoluta del comando en un Bash —heurística, solo se acepta dentro del árbol de la sesión—, el `cwd` del payload y, al final, la raíz de la sesión. Así la configuración que se carga y la evidencia que se escribe son siempre las del repositorio del cambio.
+
 | Clave | `userConfig` | Default | Efecto |
 |---|---|---|---|
 | `SDD_ARTIFACT_STORE` | `artifact_store` | `repo` | Política del store de artefactos: `repo`, `local` o `engram`. Ver `ORCHESTRATOR.md` §3 |
@@ -144,7 +146,7 @@ Los guardrails son regex sobre el contenido que el agente va a escribir. Cubren 
 |---|---|
 | Emails que no sean `@example.com/org/net`, `@test.local` o `@localhost` · Teléfonos en formato internacional (`+` y 8–15 dígitos) | Nombres y apellidos, direcciones, documentos nacionales (RUT, DNI, CUIT, CPF, NIF), tarjetas, fechas de nacimiento, IPs, **teléfonos en formato local** (`11 5555-5555` no matchea) |
 
-**Corridas de tests** — `SDD_TEST_CMD_RE` reconoce los runners de cada stack y los comandos agregados de gate (`pnpm|npm|yarn|bun|turbo` + `test`, `check`, `verify`, `validate`, `run ci`). `npm ci` queda fuera a propósito: instala dependencias. Un alias propio (`pnpm gate`, `make qa`) no se reconoce sin declarar `SDD_TEST_CMD_RE` en `.claude/sdd-hooks.env`. En el otro sentido, un comando que solo *menciona* una corrida dentro de un heredoc puede contarse como evidencia; la línea sale marcada con `WARN=no-tests-ran` y el `verifier` la descarta.
+**Corridas de tests** — `SDD_TEST_CMD_RE` reconoce los runners de cada stack y los comandos agregados de gate (`pnpm|npm|yarn|bun|turbo` + `test`, `check`, `verify`, `validate`, `run ci`). `npm ci` queda fuera a propósito: instala dependencias. Un alias propio (`pnpm gate`, `make qa`) no se reconoce sin declarar `SDD_TEST_CMD_RE` en `.claude/sdd-hooks.env`. El cuerpo de un heredoc no se evalúa: escribir prosa que menciona `vitest` dentro de un `<<EOF` no cuenta como corrida.
 
 Hoy ampliarlos requiere editar `hooks/common.sh` (`SECRET_RE`, `PHONE_RE`) en una copia del plugin: no hay clave de configuración para patrones propios. Si tu proyecto maneja documentos nacionales o teléfonos locales, es el primer lugar donde mirar.
 

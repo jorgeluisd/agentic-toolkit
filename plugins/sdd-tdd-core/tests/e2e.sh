@@ -75,6 +75,65 @@ t "ruta absoluta"                          "$(root SDD_ARTIFACTS_DIR=/tmp/sdd)" 
 t "barra final normalizada"                "$(root SDD_ARTIFACTS_DIR=docs/sdd/)"     /proj/docs/sdd
 t "proyecto gana sobre userConfig"         "$(root SDD_ARTIFACTS_DIR=gana CLAUDE_PLUGIN_OPTION_ARTIFACTS_DIR=pierde)" /proj/gana
 
+# --------------------------------------- raíz del proyecto por ancla (multi-repo)
+# La sesión abierta en una carpeta que contiene varios repositorios: CLAUDE_PROJECT_DIR
+# apunta a la contenedora, que no es un repositorio y no tiene la configuración. El
+# hook tiene que anclarse en lo que la herramienta está tocando, no en la raíz de la sesión.
+sec "Raíz del proyecto · ancla dentro del repositorio"
+C="$(mktemp -d "${TMPDIR:-/tmp}/sdd-e2e-multi.XXXXXX")"
+trap 'rm -rf "$R" "$C"' EXIT
+mkdir -p "$C/repo-a/src" "$C/repo-a/.claude" "$C/repo-a/docs/sdd" "$C/repo-b/src" "$C/suelto"
+printf 'SDD_PROD_MARKERS=marcador-del-equipo\nSDD_BASE_BRANCH=trunk\n' > "$C/repo-a/.claude/sdd-hooks.env"
+printf '0007-alta\n' > "$C/repo-a/docs/sdd/.current"
+for r in repo-a repo-b; do
+  git -C "$C/$r" init -q .
+  git -C "$C/$r" config --local user.name "Dev Prueba"
+  git -C "$C/$r" config --local user.email "dev@example.com"
+  printf 'x\n' > "$C/$r/src/x.ts"
+  git -C "$C/$r" add -A >/dev/null && git -C "$C/$r" commit -qm "chore: initial commit"
+done
+git -C "$C/repo-a" worktree add -q "$C/wt-a" -b wt >/dev/null 2>&1
+
+res(){ printf '%s' "$1" | env -u SDD_ARTIFACTS_DIR -u SDD_ARTIFACT_STORE -u SDD_BASE_BRANCH \
+       CLAUDE_PROJECT_DIR="$2" bash -c ". $HOOKS/common.sh; read_input; printf '%s' \"\${${3:-PROJECT_DIR}}\""; }
+pw(){ jq -nc --arg p "$1" '{tool_name:"Write",tool_input:{file_path:$p}}'; }
+pc(){ jq -nc --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
+pd(){ jq -nc --arg d "$1" '{tool_name:"Task",cwd:$d,tool_input:{subagent_type:"implementer"}}'; }
+
+t "ancla file_path resuelve el repositorio" "$(res "$(pw "$C/repo-a/src/x.ts")" "$C")"                    "$C/repo-a"
+t "carga los marcadores de ese repo"        "$(res "$(pw "$C/repo-a/src/x.ts")" "$C" PROD_MARKERS)"       marcador-del-equipo
+t "y su rama base"                          "$(res "$(pw "$C/repo-a/src/x.ts")" "$C" BASE_BRANCH)"        trunk
+t "artefactos dentro del repo"              "$(res "$(pw "$C/repo-a/src/x.ts")" "$C" ARTIFACTS_ROOT)"     "$C/repo-a/docs/sdd"
+t "ancla de comando (ruta absoluta)"        "$(res "$(pc "cd $C/repo-a && pnpm test")" "$C")"             "$C/repo-a"
+t "ancla cwd del payload"                   "$(res "$(pd "$C/repo-a")" "$C")"                             "$C/repo-a"
+t "worktree resuelve a su propia raíz"      "$(res "$(pw "$C/wt-a/src/x.ts")" "$C")"                      "$C/wt-a"
+t "repo sin config no hereda la del otro"   "$(res "$(pw "$C/repo-b/src/x.ts")" "$C/repo-a" BASE_BRANCH)" develop
+t "sesión en la raíz del repo no cambia"    "$(res "$(pw "$C/repo-a/src/x.ts")" "$C/repo-a")"             "$C/repo-a"
+t "fuera de todo repo, cae a hoy"           "$(res "$(pw "$C/suelto/x.txt")" "$C")"                       "$C"
+t "ruta de comando fuera del árbol se ignora" "$(res "$(pc "ls $C/repo-a/src && pnpm test")" "$R")"          "$R"
+t "el archivo sí manda fuera del árbol"       "$(res "$(pw "$C/repo-a/src/x.ts")" "$R")"                     "$C/repo-a"
+t "el entorno sobrevive a la re-resolución" "$(printf '%s' "$(pw "$C/repo-a/src/x.ts")" | env SDD_ARTIFACTS_DIR=.sdd CLAUDE_PROJECT_DIR="$C" bash -c ". $HOOKS/common.sh; read_input; printf '%s' \"\$ARTIFACTS_ROOT\"")" "$C/repo-a/.sdd"
+
+# La evidencia tiene que caer en el repo tocado, y la contenedora quedar intacta.
+printf '%s' "$(jq -nc --arg c "cd $C/repo-a && pnpm test" --arg o "10 passed" \
+  '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:$o,exit_code:0}}')" \
+  | env CLAUDE_PROJECT_DIR="$C" bash "$HOOKS/post-bash.sh" >/dev/null 2>&1
+t "evidencia en el repo, no en la contenedora" "$(yn "$C/repo-a/docs/sdd/0007-alta/tdd-evidence.log")"    si
+t "ningún _unassigned fuera del repo"          "$(yn "$C/docs")"                                          no
+# UserPromptSubmit no trae comando ni archivo: ancla en el cwd del payload.
+printf '%s\t%s\n' '2026-01-01T00:00:00Z' 'pnpm vitest run src/order.spec.ts' > "$C/repo-a/docs/sdd/0007-alta/.tdd-pending"
+printf '%s' "$(jq -nc --arg d "$C/repo-a" '{hook_event_name:"UserPromptSubmit",cwd:$d,prompt:"seguimos"}')" \
+  | env CLAUDE_PROJECT_DIR="$C" bash "$HOOKS/user-prompt.sh" >/dev/null 2>&1
+t "user-prompt concilia dentro del repo"       "$(grep -c 'exit=!0' "$C/repo-a/docs/sdd/0007-alta/tdd-evidence.log")" 1
+# La consecuencia de no cargar la config: el guardrail de producción queda inerte.
+decc(){ local o; o="$(printf '%s' "$2" | env CLAUDE_PROJECT_DIR="$3" bash "$HOOKS/$1" 2>/dev/null)"
+  if [ -z "$o" ]; then echo allow
+  else printf '%s' "$o" | jq -r '.hookSpecificOutput.permissionDecision // .decision // "allow"'; fi; }
+DEPLOY="cd $C/repo-a && aws lambda update-function-code --function-name marcador-del-equipo"
+t "marcador del repo frena el deploy"          "$(decc pre-bash.sh "$(pc "$DEPLOY")" "$C")"                ask
+t "sin marcador, el mismo comando pasa"        "$(decc pre-bash.sh "$(pc "cd $C/repo-b && aws lambda update-function-code --function-name x")" "$C")" allow
+
+
 sec "Gatekeeper · sin feature activa no interviene"
 t "explorer sin .current"                  "$(task explorer)"          allow
 t "implementer sin .current"               "$(task implementer)"       allow
@@ -211,6 +270,12 @@ t "pnpm run ci"                            "$(det 'pnpm run ci')"               
 t "npm ci instala, no corre tests"         "$(det 'npm ci')"                        no
 t "pnpm checkout no es un gate"            "$(det 'pnpm exec checkly deploy')"      no
 t "echo pnpm check no es evidencia"        "$(det 'echo "pnpm check"')"             no
+# El cuerpo de un heredoc es dato, no comando: prosa que menciona un runner no es una corrida.
+HD="$(printf 'cat > doc.md <<%sEOF%s\nal correr vitest el ciclo queda en rojo\nEOF\n' "'" "'")"
+HP="$(printf 'python3 - <<%sPY%s\nel ciclo corre vitest sobre el caso nuevo\nPY\n' "'" "'")"
+t "prosa dentro de un heredoc no es evidencia" "$(det "$HP")"                    no
+t "heredoc con verbo no filtrado tampoco"      "$(det "$HD")"                    no
+t "comando real después del heredoc sí"        "$(det "$HD"$'\npnpm test')"      test
 
 sec "WARN de suite completa a mitad de ciclo"
 ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --argjson e "$3" \
