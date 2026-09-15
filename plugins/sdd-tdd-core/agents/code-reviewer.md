@@ -40,6 +40,7 @@ DEUDA INTRODUCIDA (lista)
 ```
 
 ## Qué NO hace
+- No escribe archivos con `>` desde el shell: los artefactos van con la herramienta de escritura, y si hace falta un heredoc, `cat >| archivo <<'EOF'` (con `noclobber`, activo en zsh en las máquinas del equipo, `>` falla sobre un archivo existente).
 - No corrige ni propone parches completos: dice qué está mal y qué se espera, no reescribe.
 - No repite los checks del `verifier` (typecheck, lint, cobertura) ni los del `security-reviewer`.
 - No opina sobre el diseño aprobado en GATE 1: si cree que el diseño estaba mal, lo anota como observación para el `archiver`, no como hallazgo del diff.

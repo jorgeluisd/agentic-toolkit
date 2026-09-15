@@ -33,6 +33,7 @@ DUDAS ABIERTAS
 ```
 
 ## Qué NO hace
+- No escribe archivos con `>` desde el shell: los artefactos van con la herramienta de escritura, y si hace falta un heredoc, `cat >| archivo <<'EOF'` (con `noclobber`, activo en zsh en las máquinas del equipo, `>` falla sobre un archivo existente).
 - No escribe código.
 - No sugiere mensajes de commit ni orden de commits (eso es de la skill `delivery-workflow` cuando el humano pide commitear).
 - No cambia el diseño por su cuenta.

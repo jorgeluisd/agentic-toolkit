@@ -101,7 +101,7 @@ Seis scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corre
 | Hook | Evento | Qué hace |
 |---|---|---|
 | `pre-bash.sh` | `PreToolUse` / `Bash` | Guardrails de producción y git antes de ejecutar |
-| `post-bash.sh` | `PostToolUse` / `Bash` | Registra evidencia TDD; verifica identidad y trailers del commit |
+| `post-bash.sh` | `PostToolUse` + `PostToolUseFailure` / `Bash` | Registra evidencia TDD; verifica identidad y trailers del commit |
 | `pre-file.sh` | `PreToolUse` / `Read\|Edit\|Write\|MultiEdit` | Bloquea antes de que nada toque el disco |
 | `post-file.sh` | `PostToolUse` / `Edit\|Write\|MultiEdit` | Devuelve el problema al agente para que corrija |
 | `pre-task.sh` | `PreToolUse` / `Task` | **Gatekeeper de fases**: deniega el lanzamiento de un agente si le falta un insumo requerido |
@@ -121,12 +121,17 @@ Cada corrida de tests se registra en `<raíz>/<feature>/tdd-evidence.log`:
 
 ```
 2026-09-04T01:12:44Z | exit=0 | pnpm test orders | Tests 12 passed (12) Test Files 3 passed
-2026-09-04T01:14:02Z | exit=!0 | pnpm vitest run order.spec.ts | sin salida capturada | WARN=resultado-inferido-por-ausencia-de-PostToolUse
+2026-09-04T01:14:02Z | exit=1 | pnpm vitest run order.spec.ts | Tests 1 failed (1) Test Files 1 failed (1)
+2026-09-04T01:16:30Z | exit=0 | pnpm vitest run order.spec.ts && cat > notas.md <<'EOF' … | Tests 1 passed (1) | WARN=call-failed-outside-tests
 ```
 
-La segunda forma es una corrida que **falló**. El harness solo entrega `PostToolUse` cuando la llamada Bash termina en 0, así que el RED del ciclo —la evidencia más importante— nunca llegaría al hook. `PreToolUse`, que sí se ejecuta siempre, deja la corrida marcada en `<raíz>/<feature>/.tdd-pending` antes de lanzarla; el hook siguiente (otro Bash o el `UserPromptSubmit` del turno) la concilia: si el resultado llegó, la marca se descarta; si no llegó, esa ausencia es el dato y se registra con `exit=!0`. Se pierde el resumen del runner, no el hecho de que la corrida terminó en rojo.
+El hook está registrado en `PostToolUse` y en `PostToolUseFailure`: el harness entrega el primero cuando la llamada Bash termina en 0 y el segundo cuando falla, con el exit code y la salida (stdout y stderr mezclados, recortada a unos 10 000 caracteres desde el principio). Así el RED del ciclo —la segunda línea— queda con su código y su resumen reales.
 
-Con secretos y emails redactados por patrón, y tres marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"), y `WARN=full-suite-mid-cycle` si se corrió la suite completa con un RED abierto — la suite es del cierre de tarea y del `verifier`, no del ciclo interno, y cuesta unas 3× más por corrida. El `verifier` contrasta la tabla del apply-progress contra este log.
+Ese exit code es el de la llamada entera, no el de los tests. La tercera línea es una corrida verde encadenada con una escritura que falló por `noclobber`: si el runner reporta tests ejecutados y ninguno rojo, la llamada fallida se registra `exit=0` con `WARN=call-failed-outside-tests`; si no hay rastro del runner, `WARN=no-tests-ran`; si la salida se recortó antes del resumen, `WARN=output-truncated`. Por eso una corrida de tests va sola en su llamada, y toda escritura por heredoc usa `>|` (`cat >| archivo <<'EOF'`), que ignora `noclobber`.
+
+Si no llega ningún evento, queda la marca que `PreToolUse` deja antes de lanzar cada corrida en `<raíz>/<feature>/.tdd-pending/<tool_use_id>`, y se registra como `exit=!0 | … | sin salida capturada | WARN=resultado-inferido-por-ausencia-de-PostToolUse`. `pre-bash` concilia solo las marcas más viejas que el timeout máximo de Bash —una llamada en paralelo puede seguir corriendo— y el `UserPromptSubmit` del turno, todas.
+
+Con secretos y emails redactados por patrón, y estas marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, `WARN=output-truncated` si el harness recortó la salida de una llamada fallida antes del resumen del runner, `WARN=interrupted` si la corrida se cortó, `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"), y `WARN=full-suite-mid-cycle` si se corrió la suite completa con un RED abierto — la suite es del cierre de tarea y del `verifier`, no del ciclo interno, y cuesta unas 3× más por corrida. El `verifier` contrasta la tabla del apply-progress contra este log.
 
 Este log, `docs/sdd/.current`, `<feature>/.tdd-pending` y `docs/sdd/.hook-errors.log` (donde los hooks anotan un payload que no pudieron leer, en vez de salir en silencio) son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
 

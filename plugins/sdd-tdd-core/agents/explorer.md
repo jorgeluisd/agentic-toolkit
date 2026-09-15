@@ -41,6 +41,7 @@ DUDAS ABIERTAS
 ```
 
 ## Qué NO hace
+- No escribe archivos con `>` desde el shell: los artefactos van con la herramienta de escritura, y si hace falta un heredoc, `cat >| archivo <<'EOF'` (con `noclobber`, activo en zsh en las máquinas del equipo, `>` falla sobre un archivo existente).
 - No propone enfoques ni tecnologías.
 - No modifica archivos.
 - No decide si hace falta ADR (eso lo hace el `proposer` con tu mapa).

@@ -6,9 +6,9 @@
 # Se lee antes de conciliar: el payload trae el cwd, que es lo que ancla la raíz
 # del proyecto cuando la sesión se abrió fuera del repositorio.
 read_input
-# Última oportunidad de conciliar: si el turno anterior terminó con una corrida de
-# tests fallida, no habrá otro hook de Bash hasta que el humano vuelva a hablar.
-flush_pending_test
+# Última oportunidad de conciliar: con el turno terminado ningún evento de Bash queda
+# en camino, así que toda marca que sigue ahí no recibió resultado.
+flush_pending_test all
 prompt="$(printf '%s' "$INPUT" | jq -r '.prompt // ""' 2>/dev/null)"
 [ -z "$prompt" ] && exit 0
 case "$prompt" in /*) exit 0 ;; esac

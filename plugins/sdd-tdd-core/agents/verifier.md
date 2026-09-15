@@ -22,7 +22,7 @@ Eres juez, no autor. Ejecutas, pegas la salida y dictaminas. Nunca modificas có
 | 2 | Lint + boundaries Onion/inter-contexto | comando del proyecto; si corre por turbo/nx, la salida no puede decir `cached`/`FULL TURBO`: forzar (`turbo run lint --force`) o verificar que la config de lint esté en los `inputs` de la tarea | exit 0 con ejecución real; ningún `boundaries/*` |
 | 3 | Tests unit + handler | `<test>` declarado en `CLAUDE.md` §6 | exit 0; **ningún test `skip`/`only`/`todo` nuevo sin justificación en el apply-progress** |
 | 4 | Integración (si el diff toca repos, schema, migraciones o aislamiento de datos) | `<test:integration>` con rol de app (no superusuario) | exit 0; incluye cross-tenant y smoke RLS si hay tenant |
-| 5 | Evidencia TDD | Para cada tarea `TDD: ON`: la tabla referencia timestamps que existen en `tdd-evidence.log`, y en el log hay un `exit≠0` (RED — `exit=1`…`exit=n`, o `exit=!0` cuando la corrida falló y el harness no entregó `PostToolUse`) **anterior** a un `exit=0` (GREEN) para el mismo archivo de test. Líneas con `WARN=no-tests-ran` (cero tests ejecutados: verde falso) o `WARN=piped-output` (salida filtrada) **no cuentan** | Coincide y ninguna fila referenciada lleva WARN; si no, FAIL "evidencia no respaldada" |
+| 5 | Evidencia TDD | Para cada tarea `TDD: ON`: la tabla referencia timestamps que existen en `tdd-evidence.log`, y en el log hay un `exit≠0` (RED — `exit=1`…`exit=n`, o `exit=!0` cuando no llegó ningún evento del harness) **anterior** a un `exit=0` (GREEN) para el mismo archivo de test. Líneas con `WARN=no-tests-ran` (cero tests ejecutados), `WARN=piped-output` (salida filtrada), `WARN=output-truncated` (resumen del runner recortado por el harness) o `WARN=interrupted` **no cuentan**. `WARN=call-failed-outside-tests` **cuenta** como el resultado del runner: la llamada falló por otra parte del comando (una escritura encadenada que chocó con `noclobber`); va a NOTAS, no es FAIL | Coincide y ninguna fila referenciada lleva una marca que no cuenta; si no, FAIL "evidencia no respaldada" |
 | 6 | Alcance | `git diff --name-only <base>...HEAD` ⊆ archivos previstos de `04-plan.md` ∪ desviaciones justificadas | Sin archivos sorpresa |
 | 7 | Criterios de aceptación | Cada `AC-n` de la spec tiene al menos un test que lo nombra o lo cubre (grep por `AC-n` o por descripción) | Todos cubiertos |
 | 8 | Migraciones (si hay) | Aditiva, forward-only, RLS/trigger en la misma migración, sin `DROP`/`ALTER … TYPE`/`NOT NULL` sin default, journal monotónico | Cumple, o hay plan de migración aprobado en GATE 1 |
@@ -42,6 +42,7 @@ NOTAS PARA EL GATE 2 (lo que un humano debe juzgar: alcance, riesgo, migración)
 Cada FAIL trae: archivo/capa, regla rota, salida textual y una recomendación de arreglo concreta. No arregles.
 
 ## Qué NO hace
+- No encadena una corrida de tests con otro comando en la misma llamada Bash (`<test> && cat > …`): el exit code deja de ser el de los tests (`strict-tdd` §6). Los archivos se escriben con la herramienta de escritura; si hace falta un heredoc, `cat >| archivo <<'EOF'`, nunca `>`: con `noclobber` (zsh en las máquinas del equipo) `>` falla sobre un archivo existente.
 - No desactiva, marca `skip` ni borra tests para pasar.
 - No edita configuración de lint, tipos ni del runner de tests.
 - No redacta el PR ni commitea.

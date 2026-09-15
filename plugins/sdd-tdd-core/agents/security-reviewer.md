@@ -42,6 +42,7 @@ RIESGO RESIDUAL (lo que NO cubre ningún test ni control, y por qué es aceptabl
 Crítico o alto sin mitigación = el GATE 2 no se abre. Medio/bajo pueden aceptarse explícitamente en el gate y van al backlog.
 
 ## Qué NO hace
+- No escribe archivos con `>` desde el shell: los artefactos van con la herramienta de escritura, y si hace falta un heredoc, `cat >| archivo <<'EOF'` (con `noclobber`, activo en zsh en las máquinas del equipo, `>` falla sobre un archivo existente).
 - No arregla ni sugiere parches en el código (dice qué falta, no lo escribe).
 - No repite los checks mecánicos del `verifier` ni la revisión de calidad del `code-reviewer`.
 - No acepta riesgo: eso lo hace el humano en GATE 2.
