@@ -170,7 +170,7 @@ Lo que **pide confirmación humana** (`ask`): comandos que parecen dirigidos a p
 
 **Lo que no ven.** Son regex: los secretos se detectan en cinco formas (`sk-`, JWT, `postgres://user:pass@`, `AKIA`, claves privadas PEM) y los datos personales solo como emails no sintéticos y teléfonos en formato internacional. Quedan fuera los tokens de GitHub o Slack, las API keys genéricas, los documentos nacionales y los teléfonos locales. El detalle completo del borde está en la [referencia del core](plugins/sdd-tdd-core/README.md#límites-conocidos-de-los-detectores) — vale leerlo antes de confiarles material sensible.
 
-Y lo que **registra**: cada corrida de tests va a `docs/sdd/<feature>/tdd-evidence.log` con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. Las corridas que fallan las concilia `PreToolUse` y quedan como `exit=!0`, porque el harness no entrega `PostToolUse` cuando la llamada Bash termina en error. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
+Y lo que **registra**: cada corrida de tests va a `docs/sdd/<feature>/tdd-evidence.log` con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. Las corridas que fallan llegan por `PostToolUseFailure` con su exit code y el resumen del runner, y una llamada que falló por otra parte del comando —una escritura encadenada que choca con `noclobber`— no se registra como test rojo. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
 
 ---
 

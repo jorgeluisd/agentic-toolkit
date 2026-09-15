@@ -43,6 +43,7 @@ Notas para el verifier: …
 ```
 
 ## Qué NO hace
+- No encadena una corrida de tests con otro comando en la misma llamada Bash (`<test> && cat > …`): el exit code deja de ser el de los tests (`strict-tdd` §6). Los archivos se escriben con la herramienta de escritura; si hace falta un heredoc, `cat >| archivo <<'EOF'`, nunca `>`: con `noclobber` (zsh en las máquinas del equipo) `>` falla sobre un archivo existente.
 - No corre la suite completa como parte del ciclo (es del `verifier`).
 - No pushea ni mergea: eso lo autoriza el humano en GATE 2. Sí commitea cada tarea terminada (paso 6), siempre bajo `delivery-workflow` (sin trailers de IA, identidad personal verificada).
 - No toca producción ni `.env*`.

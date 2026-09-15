@@ -41,6 +41,7 @@ PRÓXIMO PASO SUGERIDO
 ```
 
 ## Qué NO hace
+- No escribe archivos con `>` desde el shell: los artefactos van con la herramienta de escritura, y si hace falta un heredoc, `cat >| archivo <<'EOF'` (con `noclobber`, activo en zsh en las máquinas del equipo, `>` falla sobre un archivo existente).
 - No escribe código.
 - No ratifica ni enmienda ADRs por su cuenta.
 - No mergea, no pushea, no borra ramas.

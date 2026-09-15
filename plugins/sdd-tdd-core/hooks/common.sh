@@ -187,32 +187,57 @@ hook_diag() {
 
 # Corrida de tests pendiente de resultado.
 #
-# El harness solo entrega PostToolUse cuando la llamada Bash termina en 0. Una
-# corrida que falla —el RED del ciclo, la evidencia más importante— nunca llega al
-# hook de evidencia. PreToolUse en cambio se ejecuta siempre, así que deja la
-# corrida marcada antes de lanzarla y el siguiente hook que corra la concilia:
-# si PostToolUse llegó, la marca se limpia con el resultado real; si no llegó, la
-# ausencia misma es el dato (la corrida falló o fue interrumpida) y se registra.
-pending_file() { printf '%s/.tdd-pending' "$(evidence_dir)"; }
+# post-bash.sh recibe el resultado de cada llamada Bash por PostToolUse (terminó en
+# 0) o por PostToolUseFailure (falló) y limpia la marca de esa llamada. La marca es
+# para cuando no llega ningún evento: PreToolUse la deja antes de lanzar la corrida,
+# un archivo por tool_use_id en <feature>/.tdd-pending/, y la que nadie limpia se
+# registra como exit=!0 sin salida. La concilian:
+# - pre-bash.sh, solo las vencidas: una llamada en paralelo puede seguir corriendo, y
+#   conciliarla antes de su evento registraría un rojo que no ocurrió. Vencida es más
+#   vieja que el timeout máximo de Bash (10 min), con margen.
+# - user-prompt.sh, todas: con el turno terminado ya no hay evento en camino.
+PENDING_STALE_MIN=15
+pending_dir() { printf '%s/.tdd-pending' "$(evidence_dir)"; }
+_pending_id() { local id; id="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-' | cut -c1-100)"; printf '%s' "${id:-sin-id}"; }
 
 mark_pending_test() {
-  local dir; dir="$(evidence_dir)"
-  mkdir -p "$dir" 2>/dev/null || return 0
+  local d; d="$(pending_dir)"
+  [ -f "$d" ] && _flush_pending_entry "$d"
+  mkdir -p "$d" 2>/dev/null || return 0
   printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     "$(printf '%s' "$1" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)" \
-    > "$dir/.tdd-pending" 2>/dev/null
+    >| "$d/$(_pending_id "$2")" 2>/dev/null
 }
 
-clear_pending_test() { rm -f "$(pending_file)" 2>/dev/null; return 0; }
+clear_pending_test() {
+  local d; d="$(pending_dir)"
+  [ -d "$d" ] || return 0
+  rm -f "$d/$(_pending_id "$1")" 2>/dev/null
+  rmdir "$d" 2>/dev/null
+  return 0
+}
 
-flush_pending_test() {
-  local dir f ts cmd
-  dir="$(evidence_dir)"; f="$dir/.tdd-pending"
-  [ -s "$f" ] || return 0
+_flush_pending_entry() {
+  local f="$1" ts cmd
+  [ -s "$f" ] || { rm -f "$f" 2>/dev/null; return 0; }
   ts="$(cut -f1 < "$f")"; cmd="$(cut -f2- < "$f")"
   rm -f "$f" 2>/dev/null
   printf '%s | exit=!0 | %s | sin salida capturada | WARN=resultado-inferido-por-ausencia-de-PostToolUse\n' \
-    "$ts" "$cmd" >> "$dir/tdd-evidence.log" 2>/dev/null
+    "$ts" "$cmd" >> "$(evidence_dir)/tdd-evidence.log" 2>/dev/null
+}
+
+# flush_pending_test [all]: sin argumento concilia solo las marcas vencidas.
+flush_pending_test() {
+  local d f; d="$(pending_dir)"
+  # La marca de 1.4.x es un archivo sin tool_use_id: se concilia como entonces.
+  if [ -f "$d" ]; then _flush_pending_entry "$d"; return 0; fi
+  [ -d "$d" ] || return 0
+  if [ "${1:-}" = all ]; then
+    find "$d" -type f 2>/dev/null
+  else
+    find "$d" -type f -mmin "+$PENDING_STALE_MIN" 2>/dev/null
+  fi | while IFS= read -r f; do _flush_pending_entry "$f"; done
+  rmdir "$d" 2>/dev/null
   return 0
 }
 

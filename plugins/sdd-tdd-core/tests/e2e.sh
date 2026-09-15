@@ -42,16 +42,16 @@ mkdir -p "$R/src" "$R/test" "$R/.claude"
 git -C "$R" init -q .
 git -C "$R" config --local user.name "Dev Prueba"
 git -C "$R" config --local user.email "dev@example.com"
-cat > "$R/package.json" <<'EOF'
+cat >| "$R/package.json" <<'EOF'
 { "name": "sdd-e2e-fixture", "version": "1.0.0", "scripts": { "test": "node --test" } }
 EOF
-cat > "$R/test/order.test.js" <<'EOF'
+cat >| "$R/test/order.test.js" <<'EOF'
 const { test } = require('node:test');
 const assert = require('node:assert');
 test('crea un pedido', () => { assert.strictEqual(1 + 1, 2); });
 test('rechaza cantidad negativa', () => { assert.ok(true); });
 EOF
-cat > "$R/.gitignore" <<'EOF'
+cat >| "$R/.gitignore" <<'EOF'
 node_modules/
 docs/sdd/.current
 docs/sdd/.hook-errors.log
@@ -214,30 +214,49 @@ printf 'RESUMEN\n' > "$F/05-apply-progress.md"
 t "verifier con evidencia y progreso"       "$(task verifier)"                            allow
 t "code-reviewer con los artefactos"        "$(task code-reviewer)"                       allow
 
-sec "Corrida de tests sin resultado · PostToolUse no se entrega si el comando falla"
-# El harness solo manda PostToolUse cuando la llamada Bash termina en 0, así que el
-# RED del ciclo nunca llegaría al hook de evidencia. pre-bash deja la corrida marcada
-# y el hook siguiente la concilia. Se simula sin invocar post-bash.
-: > "$F/tdd-evidence.log"; rm -f "$F/.tdd-pending"
-cmd 'pnpm vitest run src/order.spec.ts' >/dev/null
-t "pre-bash marca la corrida"              "$(yn "$F/.tdd-pending")"                                si
+sec "Corrida sin ningún evento · conciliación de la marca"
+# post-bash limpia la marca de su llamada (tool_use_id) con PostToolUse o con
+# PostToolUseFailure. La marca solo se concilia como exit=!0 cuando no llegó ningún
+# evento: pre-bash concilia las vencidas —una llamada en paralelo puede seguir
+# corriendo— y user-prompt, con el turno terminado, todas.
+pending_count(){ find "$F/.tdd-pending" -type f 2>/dev/null | wc -l | tr -d ' '; }
+pre(){ dec pre-bash.sh "$(jq -nc --arg c "$1" --arg id "$2" '{tool_name:"Bash",tool_input:{command:$c},tool_use_id:$id}')"; }
+prompt(){ hook user-prompt.sh '{"hook_event_name":"UserPromptSubmit","prompt":"seguimos"}' >/dev/null; }
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
+pre 'pnpm vitest run src/order.spec.ts' toolu_a >/dev/null
+t "pre-bash marca la corrida"              "$(pending_count)"                                       1
 t "todavía no hay línea en el log"         "$(grep -c . "$F/tdd-evidence.log")"                     0
+pre 'pnpm vitest run src/other.spec.ts' toolu_b >/dev/null
+t "una llamada en paralelo no la concilia" "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             0
+t "cada llamada tiene su marca"            "$(pending_count)"                                       2
+touch -t 202601010000 "$F/.tdd-pending/toolu_a"
 cmd 'ls -la' >/dev/null
-t "el hook siguiente concilia"             "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             1
+t "pre-bash concilia la marca vencida"     "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             1
 t "conserva el comando conciliado"         "$(grep -c 'order.spec.ts' "$F/tdd-evidence.log")"       1
+t "la reciente sigue pendiente"            "$(pending_count)"                                       1
+prompt
+t "user-prompt concilia el resto"          "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             2
 t "la marca se consume"                    "$(yn "$F/.tdd-pending")"                                no
-cmd 'ls -la' >/dev/null
-t "no se duplica en la siguiente llamada"  "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             1
+prompt
+t "no se duplica en el turno siguiente"    "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             2
 
-: > "$F/tdd-evidence.log"; rm -f "$F/.tdd-pending"
-cmd 'pnpm vitest run src/order.spec.ts' >/dev/null
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
+pre 'pnpm vitest run src/order.spec.ts' toolu_ok >/dev/null
 hook post-bash.sh "$(jq -nc --arg c 'pnpm vitest run src/order.spec.ts' \
-  '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:"Tests  3 passed (3)",stderr:""}}')" >/dev/null
+  '{hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{command:$c},tool_use_id:"toolu_ok",tool_response:{stdout:"Tests  3 passed (3)",stderr:""}}')" >/dev/null
 t "con resultado real, la marca se limpia" "$(yn "$F/.tdd-pending")"                                no
 t "y no queda corrida sin resultado"       "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             0
 t "queda la línea con el resultado"        "$(grep -c 'exit=0' "$F/tdd-evidence.log")"              1
 
-: > "$F/tdd-evidence.log"; rm -f "$F/.tdd-pending"
+# Una marca de 1.4.x es un archivo sin tool_use_id: se concilia en vez de romper la nueva.
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
+printf '%s\t%s\n' '2026-01-01T00:00:00Z' 'pnpm vitest run src/legacy.spec.ts' >| "$F/.tdd-pending"
+pre 'pnpm vitest run src/order.spec.ts' toolu_new >/dev/null
+t "marca heredada de 1.4.x se concilia"    "$(grep -c 'legacy.spec.ts' "$F/tdd-evidence.log")"      1
+t "y la nueva queda en su lugar"           "$(pending_count)"                                       1
+rm -rf "$F/.tdd-pending"
+
+: > "$F/tdd-evidence.log"
 cmd 'git push origin develop' >/dev/null
 t "un ask no marca corrida"                "$(yn "$F/.tdd-pending")"                                no
 
@@ -271,7 +290,7 @@ t "npm ci instala, no corre tests"         "$(det 'npm ci')"                    
 t "pnpm checkout no es un gate"            "$(det 'pnpm exec checkly deploy')"      no
 t "echo pnpm check no es evidencia"        "$(det 'echo "pnpm check"')"             no
 # El cuerpo de un heredoc es dato, no comando: prosa que menciona un runner no es una corrida.
-HD="$(printf 'cat > doc.md <<%sEOF%s\nal correr vitest el ciclo queda en rojo\nEOF\n' "'" "'")"
+HD="$(printf 'cat >| doc.md <<%sEOF%s\nal correr vitest el ciclo queda en rojo\nEOF\n' "'" "'")"
 HP="$(printf 'python3 - <<%sPY%s\nel ciclo corre vitest sobre el caso nuevo\nPY\n' "'" "'")"
 t "prosa dentro de un heredoc no es evidencia" "$(det "$HP")"                    no
 t "heredoc con verbo no filtrado tampoco"      "$(det "$HD")"                    no
@@ -294,6 +313,112 @@ t "suite tras GREEN (cierre) no marca"     "$(lastwarn)"  -
 ev 'pnpm test' '2 failed' 1
 ev 'pnpm test' '10 passed' 0
 t "suite tras suite no marca"              "$(lastwarn)"  -
+
+sec "PostToolUseFailure · la llamada fallida llega con su salida"
+# PostToolUse solo llega cuando la llamada Bash termina en 0. Cuando falla llega
+# PostToolUseFailure, sin tool_response: el código y la salida (stdout y stderr
+# mezclados) vienen en .error como "Exit code <n>\n<salida>", recortada a unos
+# 10 000 caracteres desde el principio. Forma capturada del harness real (2.1.272).
+t "hooks.json registra PostToolUseFailure/Bash" \
+  "$(jq -r '.hooks.PostToolUseFailure[]? | select(.matcher=="Bash") | .hooks[].command' "$HOOKS/hooks.json" | grep -c 'post-bash.sh')" 1
+fail_ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --arg id "$3" \
+  '{hook_event_name:"PostToolUseFailure",tool_name:"Bash",tool_input:{command:$c},tool_use_id:$id,error:$o,is_interrupt:false}')" >/dev/null; }
+last(){ tail -n 1 "$F/tdd-evidence.log"; }
+# Lo que el verifier cuenta como RED: exit distinto de 0 sin una marca que invalide la línea.
+reds(){ grep -E '\| exit=([1-9]|!0)' "$F/tdd-evidence.log" | grep -vcE 'WARN=.*(no-tests-ran|piped-output|output-truncated|interrupted)'; }
+HAS_NODE=0; command -v node >/dev/null && command -v npm >/dev/null && HAS_NODE=1
+
+mkdir -p "$R/red"
+cat >| "$R/red/order.red.test.js" <<'EOF'
+const { test } = require('node:test');
+const assert = require('node:assert');
+test('rechaza un pedido vacío', () => { assert.strictEqual(undefined, 'ORDER_EMPTY'); });
+EOF
+RED_CMD='npm test -- red/order.red.test.js'
+if [ "$HAS_NODE" = 1 ]; then
+  RED_OUT="$(cd "$R" && npm test -- red/order.red.test.js 2>&1)"; RED_CODE=$?; RSRC="corrida real"
+else
+  RED_OUT="not ok 1 - rechaza un pedido vacío"$'\n'"# tests 1"$'\n'"# pass 0"$'\n'"# fail 1"; RED_CODE=1; RSRC="payload equivalente"
+fi
+rm -rf "$R/red"
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
+pre "$RED_CMD" toolu_red >/dev/null
+fail_ev "$RED_CMD" "Exit code $RED_CODE"$'\n'"$RED_OUT" toolu_red
+t "RED real deja exit=1 ($RSRC)"           "$(last | grep -oE '\| exit=[^ ]+')"                     "| exit=1"
+t "con el resumen del runner"              "$(last | grep -c 'fail 1')"                             1
+t "sin marca de sospecha"                  "$(last | grep -c 'WARN=')"                              0
+t "cuenta como RED"                        "$(reds)"                                                1
+t "la marca de esa llamada se limpia"      "$(pending_count)"                                       0
+prompt
+t "y no se concilia otra vez como exit=!0" "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             0
+
+# El caso real: tests verdes encadenados con una escritura que choca con noclobber.
+printf 'previo\n' >| "$R/artefacto.md"
+NC_CMD="npm test && cat > artefacto.md <<'EOF'"$'\n'"# notas"$'\n'"EOF"
+if [ "$HAS_NODE" = 1 ]; then
+  NC_OUT="$(cd "$R" && bash -c "set -o noclobber; $NC_CMD" 2>&1)"; NC_CODE=$?
+else
+  NC_OUT="ok 1 - crea un pedido"$'\n'"# tests 2"$'\n'"# pass 2"$'\n'"# fail 0"$'\n'"bash: artefacto.md: cannot overwrite existing file"; NC_CODE=1
+fi
+t "tests verdes && cat > existente sale 1" "$NC_CODE"                                               1
+: > "$F/tdd-evidence.log"
+pre "$NC_CMD" toolu_nc >/dev/null
+fail_ev "$NC_CMD" "Exit code $NC_CODE"$'\n'"$NC_OUT" toolu_nc
+t "la escritura fallida no es un test rojo" "$(reds)"                                               0
+t "queda como GREEN con la llamada marcada" "$(last | grep -c '| exit=0 |.*WARN=call-failed-outside-tests')" 1
+t "sin corrida pendiente"                  "$(pending_count)"                                       0
+prompt
+t "ni conciliada después como exit=!0"     "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             0
+
+: > "$F/tdd-evidence.log"
+W_CMD="cat > artefacto.md <<'EOF'"$'\n'"# notas"$'\n'"EOF"$'\n'"npm test"
+fail_ev "$W_CMD" "Exit code 1"$'\n'"bash: line 1: artefacto.md: cannot overwrite existing file" toolu_w
+t "escritura fallida antes de los tests: no es RED" "$(reds)"                                       0
+t "marca no-tests-ran"                     "$(last | grep -c 'WARN=no-tests-ran')"                  1
+
+: > "$F/tdd-evidence.log"
+LONG="$(for i in $(seq 1 400); do printf 'ok %d - caso %d de relleno para superar el recorte\n' "$i" "$i"; done)"
+fail_ev 'pnpm test' "Exit code 1"$'\n'"${LONG:0:10000}" toolu_long
+t "salida recortada: conserva el exit real" "$(last | grep -oE '\| exit=[^ ]+')"                    "| exit=1"
+t "marca output-truncated"                 "$(last | grep -c 'WARN=output-truncated')"              1
+t "y no cuenta como RED ni como GREEN"     "$(reds)"                                                0
+
+# Forma no capturada del harness real: interrupción sin "Exit code".
+: > "$F/tdd-evidence.log"
+hook post-bash.sh "$(jq -nc '{hook_event_name:"PostToolUseFailure",tool_name:"Bash",tool_input:{command:"pnpm test"},tool_use_id:"toolu_int",error:"Interrupted by user",is_interrupt:true}')" >/dev/null
+t "interrupción: exit=!0 con marca"        "$(last | grep -c '| exit=!0 |.*WARN=.*interrupted')"    1
+t "y no cuenta como RED"                   "$(reds)"                                                0
+
+sec "Sin tests ejecutados · no-tests-ran"
+: > "$F/tdd-evidence.log"
+hook post-bash.sh "$(jq -nc --arg c 'pnpm vitest run src/order.spec.ts -t "no existe"' \
+  '{hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{command:$c},tool_use_id:"toolu_nt",tool_response:{stdout:"No test files found, exiting with code 0",stderr:"",interrupted:false}}')" >/dev/null
+t "exit=0 sin tests sigue marcando no-tests-ran" "$(last | grep -c '| exit=0 |.*WARN=no-tests-ran')" 1
+
+sec "Escritura por heredoc con noclobber"
+printf 'previo\n' >| "$R/artefacto.md"
+t "bash: cat > sobre existente falla"      "$(cd "$R" && bash -c "set -o noclobber; cat > artefacto.md <<'EOF'"$'\n'"nuevo"$'\n'"EOF" 2>/dev/null; echo $?)" 1
+t "bash: cat >| sobre existente funciona"  "$(cd "$R" && bash -c "set -o noclobber; cat >| artefacto.md <<'EOF'"$'\n'"nuevo"$'\n'"EOF" && cat artefacto.md)" nuevo
+if command -v zsh >/dev/null; then
+  t "zsh: cat > sobre existente falla"     "$(cd "$R" && zsh -fc "setopt noclobber; cat > artefacto.md <<'EOF'"$'\n'"zsh"$'\n'"EOF" 2>/dev/null; echo $?)" 1
+  t "zsh: cat >| sobre existente funciona" "$(cd "$R" && zsh -fc "setopt noclobber; cat >| artefacto.md <<'EOF'"$'\n'"zsh"$'\n'"EOF" && cat artefacto.md)" zsh
+fi
+rm -f "$R/artefacto.md"
+
+sec "Verificación post-commit · solo sobre un commit que ocurrió"
+IA="$C/repo-ia"; mkdir -p "$IA"
+git -C "$IA" init -q .
+git -C "$IA" config --local user.name "Dev Prueba"
+git -C "$IA" config --local user.email "dev@example.com"
+printf 'x\n' >| "$IA/x"; git -C "$IA" add -A >/dev/null
+git -C "$IA" commit -qm "feat(x): add x" -m "Co-Authored-By: bot <bot@example.com>"
+commit_dec(){ local o
+  o="$(jq -nc --arg e "$1" '{hook_event_name:$e,tool_name:"Bash",tool_input:{command:"git commit -m \"feat(x): change\""},tool_use_id:"toolu_c"}
+       + (if $e == "PostToolUse" then {tool_response:{stdout:"",stderr:""}} else {error:"Exit code 1\nnothing to commit, working tree clean",is_interrupt:false} end)' \
+       | env CLAUDE_PROJECT_DIR="$IA" bash "$HOOKS/post-bash.sh" 2>/dev/null)"
+  if [ -z "$o" ]; then echo none; else printf '%s' "$o" | jq -r '.decision // "none"'; fi; }
+t "commit que ocurrió con trailer de IA"   "$(commit_dec PostToolUse)"                              block
+t "commit fallido no juzga el anterior"    "$(commit_dec PostToolUseFailure)"                       none
 
 sec "Rotación del apply-progress"
 mkprog(){ : > "$F/05-apply-progress.md"; for i in $(seq 1 "$1"); do printf '## T-%d — x\n d\n' "$i" >> "$F/05-apply-progress.md"; done; }
