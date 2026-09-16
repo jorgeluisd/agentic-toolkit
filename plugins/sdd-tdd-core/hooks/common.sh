@@ -154,6 +154,28 @@ strip_heredocs() {
     }
     { print }'
 }
+# heredoc_bodies <comando>: el inverso de strip_heredocs, solo los cuerpos. Con
+# `git commit -F - <<'EOF'` el cuerpo *es* el mensaje del commit.
+heredoc_bodies() {
+  awk '
+    inhd { l=$0; sub(/^[ \t]+/,"",l); if (l==delim) { inhd=0; next } print; next }
+    match($0, /<<-?[ \t]*["\047]?[A-Za-z_][A-Za-z0-9_]*["\047]?[ \t]*$/) {
+      delim=substr($0,RSTART,RLENGTH)
+      sub(/^<<-?[ \t]*/,"",delim); gsub(/["\047]/,"",delim); sub(/[ \t]+$/,"",delim)
+      inhd=1
+    }'
+}
+
+# commit_message <comando>: lo que va a quedar escrito en el mensaje —valores de
+# -m/--message/--trailer y cuerpos de heredoc—, no el comando entero. La distinción
+# importa: `delivery-workflow` §3 manda verificar cada commit con un grep que nombra
+# los patrones de atribución, y mirar el comando completo denegaba esa verificación
+# cuando iba encadenada al commit. Un mensaje por archivo (`-F notas.txt`) no se lee
+# acá; a ese lo agarra la verificación post-commit de post-bash.sh sobre el commit real.
+commit_message() {
+  printf '%s' "$1" | grep -oE "(^|[[:space:]])(-m|--message|--trailer)(=|[[:space:]]+)('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
+  printf '%s' "$1" | heredoc_bodies
+}
 is_test_run() {
   local c stripped seg first
   c="$(printf '%s' "$1" | strip_heredocs | tr '[:upper:]' '[:lower:]' | tr '\n' ';')"
