@@ -55,7 +55,7 @@ Detalle y checks en la skill local de invariantes.
 | audit | `<comando>` |
 | dev / db local | `<comando>` |
 Estos son los símbolos que usan `strict-tdd`, `delivery-workflow`, el `verifier` y `/check-arch`. Plugin de stack instalado: `<stack-typescript | …>`.
-Configuración de hooks del core: `.claude/sdd-hooks.env` (`SDD_PROD_MARKERS`, `SDD_BASE_BRANCH`, `SDD_TENANT_FIELD`, `SDD_TEST_CMD_RE`, `SDD_COMMENT_MAX_BLOCK`, `SDD_COMMENT_MAX_PCT`).
+Configuración de hooks del core: `.agentic/sdd-hooks.env` (`SDD_PROD_MARKERS`, `SDD_BASE_BRANCH`, `SDD_TENANT_FIELD`, `SDD_TEST_CMD_RE`, `SDD_COMMENT_MAX_BLOCK`, `SDD_COMMENT_MAX_PCT`).
 
 ## 7. Idioma
 Código, identificadores, asunto de commit y título de PR en inglés; body de commit (breve, opcional), cuerpo de PR (breve), docs, ADRs, specs y comentarios en español neutro. Copy de usuario final: `<dialecto del producto>`.

@@ -20,7 +20,7 @@ Instalarlo solo, sin el core, no tiene sentido: aporta skills que el pipeline ca
 
 ## Skills
 
-Claude las carga solo cuando aplican, según la `description` de cada una.
+El agente las carga solo cuando aplican, según la `description` de cada una.
 
 | Skill | Cubre |
 |---|---|
@@ -52,9 +52,9 @@ Copiar y adaptar; ninguna se instala sola. El comando `/sdd-tdd-core:adopt` las 
 
 ## Escribir un plugin para otro stack
 
-Este plugin es la referencia. Para soportar PHP, Python o Go, creá `plugins/stack-<lenguaje>/` con su `.claude-plugin/plugin.json` y sus `skills/<nombre>/SKILL.md`, y registralo en `.claude-plugin/marketplace.json`. Cubrí al menos arquitectura, convenciones de test (con los comandos reales que resuelven `<test>`, `<lint>` y `<typecheck>`), errores, persistencia y seguridad.
+Este plugin es la referencia. Para soportar PHP, Python o Go, creá `source/stack-<lenguaje>/` con su `manifest.json` y sus `skills/<nombre>/SKILL.md`, agregalo a `adapters/targets.json` y corré `node bin/atk build`. Cubrí al menos arquitectura, convenciones de test (con los comandos reales que resuelven `<test>`, `<lint>` y `<typecheck>`), errores, persistencia y seguridad.
 
-La `description` de cada skill es lo que Claude lee para decidir si la carga: tiene que decir **cuándo usarla**, no solo qué contiene.
+La `description` de cada skill es lo que el agente lee para decidir si la carga: tiene que decir **cuándo usarla**, no solo qué contiene.
 
 ---
 

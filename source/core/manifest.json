@@ -1,0 +1,32 @@
+{
+  "name": "sdd-tdd-core",
+  "displayName": "SDD/TDD Core",
+  "version": "2.0.0",
+  "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
+  "author": { "name": "Jorge Diaz", "email": "diazjorgeluis10@gmail.com" },
+  "license": "MIT",
+  "homepage": "https://github.com/jorgeluisd/agentic-toolkit",
+  "repository": "https://github.com/jorgeluisd/agentic-toolkit",
+  "keywords": ["sdd", "tdd", "orchestrator", "agents", "gates", "security", "guardrails"],
+  "targets": ["claude", "codex", "opencode", "devin"],
+  "hooks": [
+    { "event": "PreToolUse",  "matcher": "Bash",                     "script": "pre-bash.sh",   "timeout": 10, "statusMessage": "Guardrails: producción y git" },
+    { "event": "PreToolUse",  "matcher": "Read|Edit|Write|MultiEdit", "script": "pre-file.sh",   "timeout": 5,  "statusMessage": "Guardrail: archivos sensibles" },
+    { "event": "PreToolUse",  "matcher": "Task",                     "script": "pre-task.sh",   "timeout": 5,  "statusMessage": "Gatekeeper: insumos de la fase" },
+    { "event": "PostToolUse", "matcher": "Bash",                     "script": "post-bash.sh",  "timeout": 10, "statusMessage": "Evidencia TDD" },
+    { "event": "PostToolUse", "matcher": "Edit|Write|MultiEdit",     "script": "post-file.sh",  "timeout": 10, "statusMessage": "Guardrails: datos personales y migraciones" },
+    { "event": "PostToolUseFailure", "matcher": "Bash",              "script": "post-bash.sh",  "timeout": 10, "statusMessage": "Evidencia TDD", "targets": ["claude"] },
+    { "event": "UserPromptSubmit", "matcher": null,                  "script": "user-prompt.sh", "timeout": 5, "statusMessage": "Clasificación SDD" }
+  ],
+  "config": {
+    "artifact_store":       { "title": "Store de artefactos", "default": "repo", "description": "Donde viven los artefactos del pipeline: repo (versionados, auditables en el PR), local (fuera del registro, en {{LOCAL_STORE}}) o engram (memoria persistente bajo la clave sdd/<change>/<artefacto>). Vacio = repo." },
+    "artifacts_dir":        { "title": "Raiz de artefactos", "default": "", "description": "Ruta donde se materializan los archivos del pipeline. Relativa al proyecto, absoluta o con ~. Vacio = docs/sdd si el store es repo, {{LOCAL_STORE}} en los demas." },
+    "progress_keep_tasks":  { "title": "Tareas antes de rotar el apply-progress", "default": "10", "description": "Cuantas tareas conserva 05-apply-progress.md antes de rotar el detalle viejo a un archivo aparte. El implementer lo relee en cada tarea. Vacio = 10." },
+    "prod_markers":         { "title": "Marcadores de produccion (regex)", "default": "", "description": "Expresion regular extendida que identifica un comando como dirigido a produccion (refs de base de datos, nombres de app, dominios), alternativas separadas por '|'. Vacio = solo los patrones genericos del hook." },
+    "base_branch":          { "title": "Rama base", "default": "develop", "description": "Rama contra la que se abren los PR (develop o main). El hook de git pide confirmacion ante push directo a esta rama." },
+    "tenant_field":         { "title": "Campo de tenant", "default": "", "description": "Nombre del campo que identifica al tenant en DTOs y esquema. Vacio si el proyecto es single-tenant; el hook post-escritura deja de vigilar DTOs y migraciones por tenant." },
+    "test_cmd_re":          { "title": "Regex de comandos de test (evidencia TDD)", "default": "", "description": "Expresion regular extendida que reconoce una corrida de tests en un comando de shell. Vacio = default multi-stack (vitest, jest, tsc, phpunit, pest, artisan test, pytest, go test, cargo test, dotnet test, mvn/gradle test)." },
+    "comment_max_block":    { "title": "Comentarios: bloque contiguo maximo (lineas)", "default": "4", "description": "Un bloque de comentario mas largo que esto bloquea la escritura del archivo de codigo. El codigo debe explicarse con nombres, tipos y tests; los comentarios solo justifican un porque. Default 4." },
+    "comment_max_pct":      { "title": "Comentarios: porcentaje maximo de lineas por archivo", "default": "15", "description": "Porcentaje de lineas comentadas a partir del cual se bloquea la escritura de un archivo de codigo (tests, migraciones, configs y scripts quedan exentos). Default 15." }
+  }
+}

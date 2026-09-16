@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+// atk — compila source/ al empaquetado nativo de cada agente.
+//
+//   node bin/atk build [--target=claude|codex|opencode|devin] [--check]
+//   node bin/atk targets
+//
+// Sin --target compila todos los declarados en adapters/targets.json.
+// --check no escribe: falla si la salida difiere de lo que hay en disco.
+
+import { readFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Output, flush, walk } from '../adapters/lib.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const TARGETS = JSON.parse(readFileSync(join(ROOT, 'adapters/targets.json'), 'utf8'));
+const PLUGIN_DIRS = ['core', 'stack-typescript'];
+
+function loadPlugins(target) {
+  return PLUGIN_DIRS.map((dir) => {
+    const src = join(ROOT, 'source', dir);
+    const manifest = JSON.parse(readFileSync(join(src, 'manifest.json'), 'utf8'));
+    if (manifest.targets && !manifest.targets.includes(target)) return null;
+    return { dir, src, manifest, files: walk(src).filter((f) => f !== 'manifest.json') };
+  }).filter(Boolean);
+}
+
+async function build(target, check) {
+  const spec = TARGETS[target];
+  const adapterPath = join(ROOT, 'adapters', spec.adapter);
+  if (!existsSync(adapterPath)) {
+    console.log(`  ${target.padEnd(9)} sin adaptador todavía (${spec.adapter}) — se omite`);
+    return [];
+  }
+
+  const { buildTarget } = await import(adapterPath);
+  const out = new Output();
+  const rootOut = new Output();
+  buildTarget({ plugins: loadPlugins(target), out, rootOut, vars: spec.vars, target, spec });
+
+  const diffs = [
+    ...flush(out, join(ROOT, spec.out), { check }),
+    ...flush(rootOut, ROOT, { check, prune: false }),
+  ];
+  const total = out.files.size + rootOut.files.size;
+  const verb = check ? (diffs.length ? 'DIFIERE' : 'ok') : 'generado';
+  console.log(`  ${target.padEnd(9)} ${String(total).padStart(3)} archivos → ${spec.out}  ${verb}`);
+  for (const d of diffs) console.log(`      ${d}`);
+  return diffs;
+}
+
+const [cmd = 'build', ...rest] = process.argv.slice(2);
+const flags = Object.fromEntries(
+  rest.map((arg) => {
+    const [key, value = 'true'] = arg.replace(/^--/, '').split('=');
+    return [key, value];
+  }),
+);
+
+if (cmd === 'targets') {
+  for (const [name, t] of Object.entries(TARGETS)) {
+    console.log(`${name.padEnd(10)} ${t.label.padEnd(14)} → ${t.out}`);
+  }
+  process.exit(0);
+}
+
+if (cmd !== 'build') {
+  console.error('uso: atk build [--target=<t>] [--check] | atk targets');
+  process.exit(2);
+}
+
+const wanted = flags.target ? [flags.target] : Object.keys(TARGETS);
+for (const t of wanted) {
+  if (!TARGETS[t]) {
+    console.error(`target desconocido: ${t}`);
+    process.exit(2);
+  }
+}
+
+const check = flags.check === 'true';
+console.log(check ? 'atk build --check' : 'atk build');
+
+let failed = 0;
+for (const t of wanted) failed += (await build(t, check)).length;
+
+if (check && failed) {
+  console.error(`\n${failed} diferencia(s): la salida no está sincronizada con source/. Corré \`node bin/atk build\` y commiteá.`);
+  process.exit(1);
+}
