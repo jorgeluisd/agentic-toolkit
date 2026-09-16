@@ -51,6 +51,7 @@ docs/sdd/.current
 docs/sdd/.hook-errors.log
 docs/sdd/**/tdd-evidence.log
 docs/sdd/**/.tdd-pending
+docs/sdd/.tdd-pending-dirs
 ```
 
 Con `local` o `engram`, la raíz entera — y entonces el `.gitkeep` no se crea:

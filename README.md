@@ -261,7 +261,7 @@ claude plugin marketplace update agentic-toolkit
 ## Contribuir
 
 ```bash
-bash source/core/tests/e2e.sh            # 214 aserciones, repo de prueba descartable
+bash source/core/tests/e2e.sh            # 215 aserciones, repo de prueba descartable
 node source/core/tests/opencode-shim.mjs # el shim de OpenCode contra los hooks reales
 node bin/atk build --check                # la salida commiteada coincide con source/
 ```

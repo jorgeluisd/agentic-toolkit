@@ -57,6 +57,7 @@ docs/sdd/.current
 docs/sdd/.hook-errors.log
 docs/sdd/**/tdd-evidence.log
 docs/sdd/**/.tdd-pending
+docs/sdd/.tdd-pending-dirs
 EOF
 printf 'SDD_BASE_BRANCH=develop\n' > "$R/.claude/sdd-hooks.env"
 printf 'SECRET=x\n' > "$R/.env"
@@ -645,6 +646,7 @@ TRK="$(git -C "$R" ls-files docs/sdd)"
 t "tdd-evidence.log ignorado"              "$(printf '%s' "$TRK" | grep -c 'tdd-evidence' || true)"   0
 t ".tdd-pending ignorado"                  "$(printf '%s' "$TRK" | grep -c 'tdd-pending' || true)"   0
 t ".hook-errors.log ignorado"              "$(printf '%s' "$TRK" | grep -c 'hook-errors' || true)"   0
+t "índice de pendientes cruzados ignorado" "$(printf '%s' "$TRK" | grep -c 'tdd-pending-dirs' || true)" 0
 t "spec de capacidad versionado"           "$(printf '%s' "$TRK" | grep -c 'specs/pedidos' || true)"  1
 t "gates.md archivado versionado"          "$(printf '%s' "$TRK" | grep -c '_archive/.*gates' || true)" 1
 
@@ -662,7 +664,9 @@ printf '0001-alta' > "$X/docs/sdd/.current"
 printf 'full' > "$X/docs/sdd/0001-alta/.level"
 
 # env -i deja el entorno sin CLAUDE_*; solo viaja lo que el payload trae.
-cx(){ printf '%s' "$2" | env -i PATH="$PATH" HOME="$HOME" bash "$HOOKS/$1" 2>/dev/null; }
+# `cd "$X"` porque sin ninguna variable de Claude la raíz de la sesión es el cwd:
+# corriendo desde el repositorio del toolkit, los hooks escribían su estado ahí.
+cx(){ (cd "$X" && printf '%s' "$2" | env -i PATH="$PATH" HOME="$HOME" bash "$HOOKS/$1" 2>/dev/null); }
 cxdec(){ local o; o="$(cx "$1" "$2")"
   if [ -z "$o" ]; then echo allow
   else printf '%s' "$o" | jq -r '.hookSpecificOutput.permissionDecision // .decision // "allow"'; fi; }
@@ -675,8 +679,8 @@ t "gatekeeper sin insumos deniega"              "$(cxdec pre-task.sh "$(jq -nc -
 
 # La evidencia TDD, que en Claude llega por PostToolUseFailure cuando el runner
 # falla, en Codex tiene que entrar igual por PostToolUse.
-printf '%s' "$(jq -nc --arg d "$X" '{tool_name:"Bash",cwd:$d,hook_event_name:"PostToolUse",tool_input:{command:"pnpm vitest run src/x.spec.ts"},tool_response:{stdout:"1 failed",stderr:"",interrupted:false}}')" \
-  | env -i PATH="$PATH" HOME="$HOME" bash "$HOOKS/post-bash.sh" >/dev/null 2>&1
+(cd "$X" && printf '%s' "$(jq -nc --arg d "$X" '{tool_name:"Bash",cwd:$d,hook_event_name:"PostToolUse",tool_input:{command:"pnpm vitest run src/x.spec.ts"},tool_response:{stdout:"1 failed",stderr:"",interrupted:false}}')" \
+  | env -i PATH="$PATH" HOME="$HOME" bash "$HOOKS/post-bash.sh" >/dev/null 2>&1)
 t "evidencia TDD escrita por PostToolUse"       "$(yn "$X/docs/sdd/0001-alta/tdd-evidence.log")" si
 t "el rojo del runner quedó registrado"         "$(grep -c 'exit=1' "$X/docs/sdd/0001-alta/tdd-evidence.log" 2>/dev/null || echo 0)" 1
 rm -rf "$X"
