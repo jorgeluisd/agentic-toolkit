@@ -47,7 +47,7 @@ _sdd_in_session_tree() {
 
 # _sdd_configure <raíz>: fija PROJECT_DIR y todo lo que se deriva de él.
 _sdd_configure() {
-  local k
+  local k _opt _pkg _end
   PROJECT_DIR="$1"
   for k in $SDD_KEYS; do eval "$k=\$_sdd_env_$k"; done
   if [ -f "$PROJECT_DIR/.claude/sdd-hooks.env" ]; then
@@ -80,10 +80,25 @@ _sdd_configure() {
   COMMENT_MAX_PCT="${SDD_COMMENT_MAX_PCT:-${CLAUDE_PLUGIN_OPTION_COMMENT_MAX_PCT:-15}}"
   # Regex que reconoce una corrida de tests (evidencia TDD). Default multi-stack.
   TEST_CMD_RE="${SDD_TEST_CMD_RE:-${CLAUDE_PLUGIN_OPTION_TEST_CMD_RE:-}}"
-  # Incluye los comandos *agregados* de gate (check, verify, validate, run ci): en la
-  # mayoría de los repos son los que de verdad corren la suite. `npm ci` queda fuera a
-  # propósito — instala dependencias, no corre tests — por eso `ci` exige `run` delante.
-  [ -z "$TEST_CMD_RE" ] && TEST_CMD_RE='(vitest|jest|mocha|(pnpm|npm|yarn|bun)[[:space:]]+(run[[:space:]]+)?test|turbo[[:space:]]+(run[[:space:]]+)?test|(pnpm|npm|yarn|bun|turbo)[[:space:]]+(run[[:space:]]+)?(check|verify|validate)([[:space:]:]|$)|(pnpm|npm|yarn|bun|turbo)[[:space:]]+run[[:space:]]+ci([[:space:]:]|$)|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|$)|artisan[[:space:]]+test|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)'
+  # El gestor admite opciones globales entre el binario y el script, y un agente con el
+  # cwd en la carpeta padre las usa: `pnpm --dir <ruta> test`, `pnpm -C <ruta> test`,
+  # `npm --prefix <ruta> test`, `pnpm --filter <paquete> test`, `pnpm -r test`,
+  # `yarn workspace <paquete> test`. El valor de la opción es opcional a propósito: si
+  # fuera obligatorio, `-r test` se comería `test` como valor y la corrida no se
+  # registraría. Incluye los comandos *agregados* de gate (check, verify, validate,
+  # run ci): en la mayoría de los repos son los que de verdad corren la suite. `npm ci`
+  # queda fuera — instala dependencias, no corre tests — por eso `ci` exige `run` delante.
+  _opt='([[:space:]]+-{1,2}[a-z][a-z0-9-]*(=[^[:space:]]+)?([[:space:]]+[^-[:space:]][^[:space:]]*)?)*'
+  _pkg="(pnpm|npm|yarn|bun|turbo)${_opt}([[:space:]]+workspace[[:space:]]+[^-[:space:]][^[:space:]]*)?${_opt}"
+  _end='([[:space:]:]|$)'
+  [ -z "$TEST_CMD_RE" ] && TEST_CMD_RE="(vitest|jest|mocha\
+|${_pkg}[[:space:]]+(run[[:space:]]+)?test${_end}\
+|${_pkg}[[:space:]]+(run[[:space:]]+)?(check|verify|validate)${_end}\
+|${_pkg}[[:space:]]+run[[:space:]]+ci${_end}\
+|tsc[[:space:]].*--noemit|phpunit|[[:space:]/]pest([[:space:]]|\$)|artisan[[:space:]]+test\
+|composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)\
+|mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test\
+|mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)"
   # Gestor de paquetes JS del proyecto (guardrail npm/yarn): solo si hay pnpm-lock.yaml.
   PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
   return 0
