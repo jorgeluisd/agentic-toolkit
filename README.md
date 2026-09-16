@@ -159,7 +159,7 @@ Si no querés que el repo acumule nada, `SDD_ARTIFACT_STORE=local` los saca del 
 
 Al cerrar, el `archiver` **reconcilia** la spec del change contra el spec de la **capacidad** que toca (`<raíz>/specs/<capacidad>/spec.md`, actualizado in place) y **archiva** la carpeta en `<raíz>/_archive/<fecha>-<slug>/`. Cien features no dejan cien specs vigentes: dejan las capacidades que el producto realmente tiene, más historia fuera del camino.
 
-Y un **gatekeeper** mecánico (hook sobre `Task`) impide lanzar una fase a la que le falta un insumo: sin `02-spec.md` no corre el `designer`, y sin GATE 1 aprobado en `gates.md` no corre el `implementer`. Un agente sin su insumo no falla — inventa.
+Y un **gatekeeper** mecánico (hook sobre `Task`) impide lanzar una fase a la que le falta un insumo: sin `02-spec.md` no corre el `designer`, y sin GATE 1 aprobado en `gates.md` no corre el `implementer`. Un agente sin su insumo no falla — inventa. El gatekeeper resuelve la feature en **el repositorio del trabajo pedido**, no en el de la sesión: si el prompt del subagente nombra rutas de otro repo, exige los artefactos de ese repo y dice a cuál está anclada la sesión, en vez de mandar a producir artefactos en uno que nadie está tocando.
 
 **Los dos gates son humanos y no se pueden automatizar.** GATE 1 aprueba spec + diseño + plan + amenazas antes de que se escriba una línea de código de producción; el token literal es la palabra `acepto`. GATE 2 decide el merge. Un gate sin registro en `gates.md` no ocurrió.
 
@@ -180,7 +180,11 @@ Y un **gatekeeper** mecánico (hook sobre `Task`) impide lanzar una fase a la qu
 
 ## Guardrails
 
-Los hooks del core corren en cada tool call y no dependen de que el agente decida portarse bien. Lo que **deniegan** (`deny`, el agente no puede insistir):
+Los hooks del core corren en cada tool call y no dependen de que el agente decida portarse bien.
+
+Miran el **código** del comando, no el dato: el cuerpo de un heredoc se escribe en un archivo o se manda por stdin, así que documentar una acción prohibida (`- git commit --no-verify está prohibido` dentro de un `cat >| doc.md <<'EOF'`) no dispara nada. La excepción es el heredoc que alimenta a un intérprete de shell (`bash <<'EOF'`), donde el cuerpo sí se ejecuta y se mira entero.
+
+Lo que **deniegan** (`deny`, el agente no puede insistir):
 
 - `git push --force`, `--no-verify`, y mensajes de commit con atribución de IA.
 - Leer o editar `.env*` (solo `.env.example`).
@@ -194,7 +198,7 @@ Lo que **pide confirmación humana** (`ask`): comandos que parecen dirigidos a p
 
 **Lo que no ven.** Son regex: los secretos se detectan en cinco formas (`sk-`, JWT, `postgres://user:pass@`, `AKIA`, claves privadas PEM) y los datos personales solo como emails no sintéticos y teléfonos en formato internacional. Quedan fuera los tokens de GitHub o Slack, las API keys genéricas, los documentos nacionales y los teléfonos locales. El detalle completo del borde está en la [referencia del core](plugins/sdd-tdd-core/README.md#límites-conocidos-de-los-detectores) — vale leerlo antes de confiarles material sensible.
 
-Y lo que **registra**: cada corrida de tests va a `docs/sdd/<feature>/tdd-evidence.log` con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. Las corridas que fallan llegan por `PostToolUseFailure` con su exit code y el resumen del runner, y una llamada que falló por otra parte del comando —una escritura encadenada que choca con `noclobber`— no se registra como test rojo. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
+Y lo que **registra**: cada corrida de tests va al `docs/sdd/<feature>/tdd-evidence.log` **del repositorio que la corrió** —el que el comando declara con `cd`, `--dir`, `-C` o `--prefix`, que no siempre es el de la sesión— con timestamp, exit code, comando y resumen — con secretos redactados y una marca `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test. Las corridas que fallan llegan por `PostToolUseFailure` con su exit code y el resumen del runner, y una llamada que falló por otra parte del comando —una escritura encadenada que choca con `noclobber`— no se registra como test rojo. Si el repositorio que corrió los tests no es el de la sesión, la línea lo dice (`WARN=repo-cruzado`); si ese repositorio no tiene feature activa, la corrida va a su propio `_unassigned/` y nunca al log de otro repo. El `verifier` contrasta la tabla del apply-progress contra ese log, no contra lo que dice el `implementer`.
 
 ---
 
@@ -257,7 +261,7 @@ claude plugin marketplace update agentic-toolkit
 ## Contribuir
 
 ```bash
-bash source/core/tests/e2e.sh            # 183 aserciones, repo de prueba descartable
+bash source/core/tests/e2e.sh            # 214 aserciones, repo de prueba descartable
 node source/core/tests/opencode-shim.mjs # el shim de OpenCode contra los hooks reales
 node bin/atk build --check                # la salida commiteada coincide con source/
 ```
