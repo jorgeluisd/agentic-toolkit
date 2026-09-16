@@ -289,6 +289,17 @@ t "pnpm run ci"                            "$(det 'pnpm run ci')"               
 t "npm ci instala, no corre tests"         "$(det 'npm ci')"                        no
 t "pnpm checkout no es un gate"            "$(det 'pnpm exec checkly deploy')"      no
 t "echo pnpm check no es evidencia"        "$(det 'echo "pnpm check"')"             no
+# El gestor admite opciones globales entre el binario y el script: un agente con el cwd
+# en la carpeta padre corre así, y esas corridas no quedaban registradas.
+t "pnpm --dir <repo> test"                 "$(det 'pnpm --dir /repo/wrap test -- tests/unit')" test
+t "pnpm --dir <repo> run test"             "$(det 'pnpm --dir /repo/wrap run test')" test
+t "pnpm -C <repo> test"                    "$(det 'pnpm -C /repo/wrap test')"       test
+t "npm --prefix <repo> test"               "$(det 'npm --prefix /repo/wrap test')"  test
+t "pnpm --filter <paquete> test"           "$(det 'pnpm --filter api test')"        test
+t "pnpm -r test"                           "$(det 'pnpm -r test')"                  test
+t "yarn workspace <paquete> test"          "$(det 'yarn workspace api test')"       test
+t "pnpm --dir <repo> run check"            "$(det 'pnpm --dir /repo/wrap run check')" test
+t "pnpm --dir <repo> add no es evidencia"  "$(det 'pnpm --dir /repo/wrap add -D typescript')" no
 # El cuerpo de un heredoc es dato, no comando: prosa que menciona un runner no es una corrida.
 HD="$(printf 'cat >| doc.md <<%sEOF%s\nal correr vitest el ciclo queda en rojo\nEOF\n' "'" "'")"
 HP="$(printf 'python3 - <<%sPY%s\nel ciclo corre vitest sobre el caso nuevo\nPY\n' "'" "'")"
@@ -325,7 +336,7 @@ fail_ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --arg id "$3" \
   '{hook_event_name:"PostToolUseFailure",tool_name:"Bash",tool_input:{command:$c},tool_use_id:$id,error:$o,is_interrupt:false}')" >/dev/null; }
 last(){ tail -n 1 "$F/tdd-evidence.log"; }
 # Lo que el verifier cuenta como RED: exit distinto de 0 sin una marca que invalide la línea.
-reds(){ grep -E '\| exit=([1-9]|!0)' "$F/tdd-evidence.log" | grep -vcE 'WARN=.*(no-tests-ran|piped-output|output-truncated|interrupted)'; }
+reds(){ grep -E '\| exit=([1-9]|!0)' "$F/tdd-evidence.log" | grep -vcE 'WARN=.*(no-tests-ran|piped-output|output-truncated|interrupted|backgrounded|compile-error)'; }
 HAS_NODE=0; command -v node >/dev/null && command -v npm >/dev/null && HAS_NODE=1
 
 mkdir -p "$R/red"
@@ -394,6 +405,61 @@ sec "Sin tests ejecutados · no-tests-ran"
 hook post-bash.sh "$(jq -nc --arg c 'pnpm vitest run src/order.spec.ts -t "no existe"' \
   '{hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{command:$c},tool_use_id:"toolu_nt",tool_response:{stdout:"No test files found, exiting with code 0",stderr:"",interrupted:false}}')" >/dev/null
 t "exit=0 sin tests sigue marcando no-tests-ran" "$(last | grep -c '| exit=0 |.*WARN=no-tests-ran')" 1
+
+sec "Exit code · el resumen del runner manda sobre el evento"
+# El PostToolUse real no trae exit code en ninguna clave (harness 2.1.272): llega solo
+# cuando la llamada salió 0, que no es lo mismo que "los tests pasaron".
+ok_ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --arg id "$3" \
+  '{hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{command:$c},tool_use_id:$id,
+    tool_response:{stdout:$o,stderr:"",interrupted:false,isImage:false,noOutputExpected:false}}')" >/dev/null; }
+GREEN_JSON='{"level":"error","code":"INTERNAL_ERROR","message":"Error: CRM down"}'$'\n'"PASS tests/unit/a.test.ts"$'\n'"Tests:       166 passed, 166 total"
+: > "$F/tdd-evidence.log"
+ok_ev 'pnpm --dir /repo/wrap exec jest --silent' "$GREEN_JSON" toolu_g1
+t "verde que imprime Error: en un log JSON"  "$(last | grep -oE '\| exit=[^ ]+')"     "| exit=0"
+t "el resumen es el del runner, no el JSON"  "$(last | grep -c 'Tests: 166 passed')"  1
+t "no cuenta como RED"                       "$(reds)"                                0
+: > "$F/tdd-evidence.log"
+ok_ev 'pnpm -C /repo/wrap test; echo "EXIT_JEST=$?"' "FAIL tests/unit/a.test.ts"$'\n'"Tests:       16 failed, 150 passed, 166 total" toolu_g2
+t "rojo que la llamada tapó con ; echo"      "$(last | grep -oE '\| exit=[^ ]+')"     "| exit=1"
+t "con el resumen del runner"                "$(last | grep -c '16 failed')"          1
+# Sin nombre de evento (un harness que no lo manda) se infiere de la salida, pero ya no
+# por `Error:` ni `ERR_`: los imprime cualquier suite que pruebe caminos de error.
+noev(){ hook post-bash.sh "$(jq -nc --arg c 'npm test' --arg o "$1" \
+  '{tool_name:"Bash",tool_input:{command:$c},tool_response:{stdout:$o,stderr:""}}')" >/dev/null; }
+: > "$F/tdd-evidence.log"
+noev "$GREEN_JSON"
+t "sin evento, Error: en un log no es rojo"  "$(last | grep -oE '\| exit=[^ ]+')"     "| exit=0"
+noev "1 failed"
+t "sin evento, el conteo del runner sí"      "$(last | grep -oE '\| exit=[^ ]+')"     "| exit=1"
+
+sec "La llamada pasó a background"
+# PostToolUse llega al pasar a background, con la salida vacía y backgroundTaskId; el
+# resultado real no llega por ningún evento. Una corrida de 236 s que terminó en rojo
+# quedaba anotada como exit=0 con WARN=no-tests-ran, o sea un verde sin tests.
+bg_ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg id "$2" --arg b "$3" --argjson to "$4" \
+  '{hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{command:$c},tool_use_id:$id,
+    tool_response:({stdout:"",stderr:"",interrupted:false,backgroundTaskId:$b}
+      + (if $to == 0 then {} else {timedOutAfterMs:$to} end))}')" >/dev/null; }
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
+pre 'pnpm --dir /repo/wrap exec jest tests/unit/services' toolu_bg >/dev/null
+bg_ev 'pnpm --dir /repo/wrap exec jest tests/unit/services' toolu_bg bzgl6mwlo 120000
+t "no se anota como verde sin tests"         "$(last | grep -c 'exit=0.*no-tests-ran')" 0
+t "queda marcada backgrounded"               "$(last | grep -c '| exit=? |.*WARN=backgrounded')" 1
+t "no cuenta como RED"                       "$(reds)"                                  0
+t "la marca de esa llamada se limpia"        "$(pending_count)"                         0
+: > "$F/tdd-evidence.log"
+bg_ev 'pnpm test' toolu_bg2 bpx6kx23t 0
+t "run_in_background se marca igual"         "$(last | grep -c 'WARN=backgrounded')"    1
+
+sec "RED de compilación · ningún caso ejecutado"
+: > "$F/tdd-evidence.log"
+fail_ev 'pnpm --dir /repo/wrap exec jest tests/unit/utils/upstream-timing.test.ts' \
+  "Exit code 1"$'\n'"error TS2305: Module has no exported member 'withTiming'."$'\n'"Test Suites: 1 failed, 1 total"$'\n'"Tests:       0 total" toolu_ce
+t "exit=1 con marca compile-error"           "$(last | grep -c '| exit=1 |.*WARN=compile-error')" 1
+t "no cuenta como RED de comportamiento"     "$(reds)"                                  0
+: > "$F/tdd-evidence.log"
+fail_ev 'npm test -- red/order.red.test.js' "Exit code 1"$'\n'"not ok 1 - rechaza un pedido vacío"$'\n'"# fail 1" toolu_cb
+t "un rojo de comportamiento no la lleva"    "$(last | grep -c 'compile-error')"        0
 
 sec "Escritura por heredoc con noclobber"
 printf 'previo\n' >| "$R/artefacto.md"
