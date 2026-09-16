@@ -132,6 +132,12 @@ _sdd_configure() {
 # resuelve. Sin repositorio ni configuración por ningún lado, queda como estaba.
 _sdd_base="${SDD_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$(pwd)}}"
 _sdd_configure "$(_sdd_climb "$_sdd_base" || printf '%s' "$_sdd_base")"
+# Referencia fija de la sesión. `sdd_reanchor` mueve PROJECT_DIR por llamada; estas
+# dos no se mueven, y son contra las que se compara para saber si una llamada salió
+# del repositorio de la sesión.
+SDD_SESSION_PROJECT_DIR="$PROJECT_DIR"
+SDD_SESSION_ARTIFACTS_ROOT="$ARTIFACTS_ROOT"
+CROSS_REPO=0
 
 _sdd_field() { printf '%s' "$1" | jq -r "$2 // \"\"" 2>/dev/null; }
 
@@ -144,20 +150,85 @@ _sdd_cmd_path() {
   [ -n "$c" ] && _sdd_in_session_tree "$c" && printf '%s' "$c"
 }
 
+# _sdd_cmd_dir <comando> <cwd>: el directorio al que el comando dice apuntar,
+# explícitamente. Primero el valor de una opción de directorio del gestor o de la
+# herramienta (`pnpm --dir X`, `pnpm -C X`, `npm --prefix X`, `git -C X`,
+# `make -C X`), y si no hay, el `cd` que abre el comando. Ambos son intención
+# declarada, no heurística: por eso no se acotan al árbol de la sesión — el caso
+# que arreglan es justamente correr los tests de otro repositorio. Una ruta
+# relativa se resuelve contra el cwd de la llamada. Se exige que el directorio
+# exista, que es lo que descarta un falso positivo como `grep -C 3`.
+_sdd_cmd_dir() {
+  local c="$1" base="$2" d=""
+  [ -n "$c" ] || return 1
+  c="$(shell_code "$c")"
+  d="$(printf '%s' "$c" \
+      | grep -oE '(^|[[:space:]])(--dir|--prefix|--cwd|-C)([[:space:]]+|=)[^[:space:];|&]+' \
+      | head -n 1 | sed -E 's/^[[:space:]]*(--dir|--prefix|--cwd|-C)([[:space:]]+|=)//')"
+  if [ -z "$d" ]; then
+    d="$(printf '%s' "$c" \
+        | grep -oE '(^|[[:space:];&|])cd[[:space:]]+[^[:space:];|&]+' \
+        | head -n 1 | sed -E 's/^[[:space:];&|]*cd[[:space:]]+//')"
+  fi
+  [ -n "$d" ] || return 1
+  d="$(printf '%s' "$d" | sed -E "s/^['\"]//; s/['\"]$//")"
+  case "$d" in
+    "~")   d="$HOME" ;;
+    "~/"*) d="$HOME/${d#\~/}" ;;
+    -*)    return 1 ;;
+    /*)    ;;
+    *)     [ -n "$base" ] || return 1; d="$base/$d" ;;
+  esac
+  [ -d "$d" ] || return 1
+  printf '%s' "$d"
+}
+
+# _sdd_text_repo <texto>: el primer repositorio que nombra un texto libre (el
+# prompt de un subagente, que no trae ni file_path ni command). Solo rutas
+# absolutas que existen y trepan a una raíz; lo demás se ignora en silencio.
+_sdd_text_repo() {
+  local p r
+  [ -n "$1" ] || return 1
+  r="$(printf '%s' "$1" \
+      | grep -oE '/[A-Za-z0-9._][^[:space:]`"'"'"'<>,:;()]*' \
+      | while IFS= read -r p; do
+          p="${p%/}"; p="${p%.}"
+          [ -e "$p" ] || continue
+          _sdd_climb "$p" && { printf '\n'; break; }
+        done | head -n 1)"
+  [ -n "$r" ] && printf '%s' "$r"
+}
+
+# _sdd_mark_cross: CROSS_REPO=1 cuando el repositorio resuelto no es el de la
+# sesión. La evidencia de esa llamada lo deja escrito (WARN=repo-cruzado), para
+# que una línea en el log de B diga de dónde salió.
+_sdd_mark_cross() {
+  CROSS_REPO=0
+  [ -n "${SDD_SESSION_PROJECT_DIR:-}" ] || return 0
+  [ "$PROJECT_DIR" = "$SDD_SESSION_PROJECT_DIR" ] || CROSS_REPO=1
+  return 0
+}
+
 # sdd_reanchor <payload>: vuelve a resolver la raíz con lo que el payload dice que
 # la herramienta está tocando. Orden de confianza: el archivo (Write/Edit/Read),
-# la primera ruta absoluta del comando (Bash, heurística), el cwd del payload, y
+# el directorio que el comando declara (--dir/-C/cd), la primera ruta absoluta del
+# comando (Bash, heurística acotada al árbol de la sesión), el cwd de la llamada, y
 # recién al final la raíz de la sesión, que es la que puede estar equivocada.
 # Cada ancla se paga solo si hace falta: el hook corre en cada herramienta que usa
 # el agente, y un Write se resuelve con una sola llamada a jq.
 sdd_reanchor() {
-  local p d
+  local p d cwd
+  CROSS_REPO=0
   p="$1"; [ -n "$p" ] || return 0
-  d="$(_sdd_climb "$(_sdd_field "$p" '.tool_input.file_path')")" ||
-    d="$(_sdd_climb "$(_sdd_cmd_path "$p")")" ||
-    d="$(_sdd_climb "$(_sdd_field "$p" '.cwd')")" ||
-    return 0
-  [ "$d" = "$PROJECT_DIR" ] || _sdd_configure "$d"
+  cwd="$(_sdd_field "$p" '.cwd')"
+  if d="$(_sdd_climb "$(_sdd_field "$p" '.tool_input.file_path')")" ||
+     d="$(_sdd_climb "$(_sdd_cmd_dir "$(_sdd_field "$p" '.tool_input.command')" "$cwd")")" ||
+     d="$(_sdd_climb "$(_sdd_cmd_path "$p")")" ||
+     d="$(_sdd_climb "$cwd")"
+  then
+    [ "$d" = "$PROJECT_DIR" ] || _sdd_configure "$d"
+  fi
+  _sdd_mark_cross
 }
 
 # is_test_run <comando>: 0 si alguno de los segmentos del comando ejecuta tests.
@@ -178,6 +249,22 @@ strip_heredocs() {
     }
     { print }'
 }
+# shell_code <comando>: el comando sin lo que es dato. El cuerpo de un heredoc se
+# escribe en un archivo o se manda por stdin, no se ejecuta: un doc que menciona
+# `git commit --no-verify` no es un `git commit --no-verify`, y los guardrails que miran el
+# comando crudo lo denegaban igual. La excepcion es el heredoc que alimenta a un
+# interprete de shell (`bash <<'EOF'`, `sh -s <<EOF`, `. /dev/stdin <<EOF`): ahi el
+# cuerpo SI se ejecuta y se conserva entero. El criterio es conservador a proposito
+# — ante la duda se mira de mas, que es el comportamiento de siempre.
+shell_code() {
+  case "$1" in *'<<'*) ;; *) printf '%s' "$1"; return 0 ;; esac
+  if printf '%s' "$1" | grep -Eq '(^|[[:space:];&|(/])(env[[:space:]]+)?(bash|sh|zsh|ksh|dash|eval|source|\.)([[:space:]]|$)'; then
+    printf '%s' "$1"
+  else
+    printf '%s' "$1" | strip_heredocs
+  fi
+}
+
 # heredoc_bodies <comando>: el inverso de strip_heredocs, solo los cuerpos. Con
 # `git commit -F - <<'EOF'` el cuerpo *es* el mensaje del commit.
 heredoc_bodies() {
@@ -202,7 +289,7 @@ commit_message() {
 }
 is_test_run() {
   local c stripped seg first
-  c="$(printf '%s' "$1" | strip_heredocs | tr '[:upper:]' '[:lower:]' | tr '\n' ';')"
+  c="$(shell_code "$1" | tr '[:upper:]' '[:lower:]' | tr '\n' ';')"
   stripped="$(printf '%s' "$c" | sed -E "s/'[^']*'//g; s/\"[^\"]*\"//g")"
   printf '%s\n' "$stripped" | sed -E 's/\|\||&&|;|\|/\n/g' | while IFS= read -r seg; do
     seg="$(printf '%s' "$seg" | sed -E 's/^[[:space:]]+//; s/^(cd [^ ]+ *)//; s/^([a-z_]+=[^ ]+ +)*//')"
@@ -259,12 +346,23 @@ hook_diag() {
 # - user-prompt.sh, todas: con el turno terminado ya no hay evento en camino.
 PENDING_STALE_MIN=15
 pending_dir() { printf '%s/.tdd-pending' "$(evidence_dir)"; }
+# Índice de carpetas de pendientes fuera del repositorio de la sesión. Con la
+# resolución por comando, `cd <B> && <runner>` deja su marca en B, y user-prompt.sh
+# —que concilia todo al cerrar el turno— resuelve contra el repositorio de la
+# sesión y nunca la vería. Cada marca cruzada anota su carpeta acá, bajo la raíz
+# de la sesión, que es la única que ese hook sí resuelve.
+_sdd_pending_index() { printf '%s/.tdd-pending-dirs' "${SDD_SESSION_ARTIFACTS_ROOT:-$ARTIFACTS_ROOT}"; }
 _pending_id() { local id; id="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-' | cut -c1-100)"; printf '%s' "${id:-sin-id}"; }
 
 mark_pending_test() {
-  local d; d="$(pending_dir)"
-  [ -f "$d" ] && _flush_pending_entry "$d"
+  local d idx; d="$(pending_dir)"
+  [ -f "$d" ] && _flush_pending_entry "$d" "$(_pending_log "$d")"
   mkdir -p "$d" 2>/dev/null || return 0
+  if [ "${CROSS_REPO:-0}" = 1 ]; then
+    idx="$(_sdd_pending_index)"
+    mkdir -p "${idx%/*}" 2>/dev/null
+    grep -qxF "$d" "$idx" 2>/dev/null || printf '%s\n' "$d" >> "$idx" 2>/dev/null
+  fi
   printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     "$(printf '%s' "$1" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)" \
     >| "$d/$(_pending_id "$2")" 2>/dev/null
@@ -278,27 +376,52 @@ clear_pending_test() {
   return 0
 }
 
+# _pending_log <carpeta de pendientes>: el log de evidencia que le corresponde.
+# Se deriva de la carpeta y no de la configuración actual, porque la conciliación
+# puede estar vaciando la carpeta de otro repositorio.
+_pending_log() { printf '%s/tdd-evidence.log' "${1%/.tdd-pending}"; }
+
 _flush_pending_entry() {
-  local f="$1" ts cmd
+  local f="$1" log="$2" ts cmd warn
   [ -s "$f" ] || { rm -f "$f" 2>/dev/null; return 0; }
   ts="$(cut -f1 < "$f")"; cmd="$(cut -f2- < "$f")"
   rm -f "$f" 2>/dev/null
-  printf '%s | exit=!0 | %s | sin salida capturada | WARN=resultado-inferido-por-ausencia-de-PostToolUse\n' \
-    "$ts" "$cmd" >> "$(evidence_dir)/tdd-evidence.log" 2>/dev/null
+  warn="resultado-inferido-por-ausencia-de-PostToolUse"
+  case "$log" in "${SDD_SESSION_ARTIFACTS_ROOT:-$ARTIFACTS_ROOT}"/*) ;; *) warn="$warn;repo-cruzado" ;; esac
+  printf '%s | exit=!0 | %s | sin salida capturada | WARN=%s\n' \
+    "$ts" "$cmd" "$warn" >> "$log" 2>/dev/null
 }
 
-# flush_pending_test [all]: sin argumento concilia solo las marcas vencidas.
-flush_pending_test() {
-  local d f; d="$(pending_dir)"
+# _flush_pending_dir <carpeta> <all|stale>: concilia las marcas de una carpeta.
+_flush_pending_dir() {
+  local d="$1" mode="$2" log f
+  log="$(_pending_log "$d")"
   # La marca de 1.4.x es un archivo sin tool_use_id: se concilia como entonces.
-  if [ -f "$d" ]; then _flush_pending_entry "$d"; return 0; fi
+  if [ -f "$d" ]; then _flush_pending_entry "$d" "$log"; return 0; fi
   [ -d "$d" ] || return 0
-  if [ "${1:-}" = all ]; then
+  if [ "$mode" = all ]; then
     find "$d" -type f 2>/dev/null
   else
     find "$d" -type f -mmin "+$PENDING_STALE_MIN" 2>/dev/null
-  fi | while IFS= read -r f; do _flush_pending_entry "$f"; done
+  fi | while IFS= read -r f; do _flush_pending_entry "$f" "$log"; done
   rmdir "$d" 2>/dev/null
+  return 0
+}
+
+# flush_pending_test [all]: sin argumento concilia solo las marcas vencidas de la
+# carpeta activa. Con `all` concilia además las de los repositorios cruzados que
+# quedaron anotados en el índice: el turno terminó y no hay evento en camino.
+flush_pending_test() {
+  local mode="${1:-stale}" idx d here
+  here="$(pending_dir)"
+  _flush_pending_dir "$here" "$mode"
+  [ "$mode" = all ] || return 0
+  idx="$(_sdd_pending_index)"
+  [ -f "$idx" ] || return 0
+  while IFS= read -r d; do
+    [ -n "$d" ] && [ "$d" != "$here" ] && _flush_pending_dir "$d" all
+  done < "$idx"
+  rm -f "$idx" 2>/dev/null
   return 0
 }
 

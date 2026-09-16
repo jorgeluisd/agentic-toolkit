@@ -30,7 +30,9 @@ Los valores que el plugin no puede adivinar, resueltos en este orden:
 
 El archivo del proyecto se versiona y es la fuente de verdad para ese repo. El `userConfig` existe para instalaciones a nivel de usuario compartidas por varios repos. Plantilla en [`templates/sdd-hooks.env`](templates/sdd-hooks.env).
 
-**Qué repositorio es "el proyecto".** No la raíz de la sesión: la sesión puede abrirse en una carpeta que contiene varios repositorios, y ahí no hay configuración que cargar. Cada hook se ancla en lo que la herramienta está tocando y sube hasta el primer directorio con `.agentic/sdd-hooks.env` y, si no hay ninguno, con `.git` (worktrees y submódulos resuelven a su propia raíz). Las anclas, por orden: el `file_path` del Write/Edit, la primera ruta absoluta del comando en un Bash —heurística, solo se acepta dentro del árbol de la sesión—, el `cwd` del payload y, al final, la raíz de la sesión. Así la configuración que se carga y la evidencia que se escribe son siempre las del repositorio del cambio.
+**Qué repositorio es "el proyecto".** No la raíz de la sesión: la sesión puede abrirse en una carpeta que contiene varios repositorios, y ahí no hay configuración que cargar. Cada hook se ancla en lo que la herramienta está tocando y sube hasta el primer directorio con `.agentic/sdd-hooks.env` y, si no hay ninguno, con `.git` (worktrees y submódulos resuelven a su propia raíz). Las anclas, por orden: el `file_path` del Write/Edit; el directorio que el comando **declara** (`cd <repo> && …`, `pnpm --dir <repo>`, `pnpm -C <repo>`, `npm --prefix <repo>`, `git -C <repo>`), que vale aunque caiga fuera del árbol de la sesión porque es intención explícita; la primera ruta absoluta del comando —heurística, esa sí solo dentro del árbol de la sesión—; el `cwd` del payload; y, al final, la raíz de la sesión. Así la configuración que se carga y la evidencia que se escribe son siempre las del repositorio del cambio, no las del repositorio donde quedó abierta la sesión.
+
+Cuando el repositorio resuelto no es el de la sesión, la línea de evidencia lo dice (`WARN=repo-cruzado`) y, si ese repositorio no tiene feature activa, la corrida va a su propio `_unassigned/` — nunca al log de otro repositorio. El gatekeeper de subagentes resuelve igual: si el prompt del agente nombra rutas de otro repositorio, exige los artefactos **de ese** repositorio y dice a cuál está anclada la sesión, en vez de pedir los de la sesión para un trabajo que no es suyo.
 
 | Clave | `userConfig` | Default | Efecto |
 |---|---|---|---|
@@ -139,6 +141,8 @@ Este log, `docs/sdd/.current`, `<feature>/.tdd-pending` y `docs/sdd/.hook-errors
 
 ### Límites conocidos de los detectores
 
+Los guardrails miran el **código** del comando, no el dato. El cuerpo de un heredoc se escribe en un archivo o se manda por stdin, así que un doc que lista `git commit --no-verify` entre las acciones prohibidas —o una spec que cita un marcador de producción— no dispara nada; la excepción es el heredoc que alimenta a un intérprete de shell (`bash <<'EOF'`), donde el cuerpo sí se ejecuta y se mira entero. La atribución de IA es al revés: ahí el cuerpo del heredoc puede ser el mensaje del commit (`git commit -F - <<'EOF'`), y se mira siempre.
+
 Los guardrails son regex sobre el contenido que el agente va a escribir. Cubren bien lo que reconocen y **no ven nada fuera de eso**. Conviene saber exactamente dónde está el borde antes de confiarles material sensible.
 
 **Secretos** — se aplica a todo archivo salvo `.env.example|sample|template` y el log de evidencia. Reconoce cinco formas:
@@ -200,7 +204,7 @@ En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las 
 bash source/core/tests/e2e.sh
 ```
 
-183 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda el agente, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, el orden de búsqueda del archivo de configuración, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, el cierre con reconciliación de capacidad y archivado, y una sección que corre los mismos hooks con payload de Codex CLI, sin ninguna variable de entorno de Claude.
+214 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda el agente, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, el orden de búsqueda del archivo de configuración, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, el cierre con reconciliación de capacidad y archivado, y una sección que corre los mismos hooks con payload de Codex CLI, sin ninguna variable de entorno de Claude.
 
 Solo necesita `bash`, `git` y `jq`; si además hay `node`, la evidencia sale de una corrida real en vez de un payload equivalente. Sale 0 si todo pasa, 1 si algo falla. Corre en CI en cada push y PR, junto a `bash -n` y `shellcheck` sobre los seis hooks.
 
