@@ -24,6 +24,8 @@ Este toolkit define un proceso, no un plugin de un producto. El proceso se escri
 
 **La configuración.** `.agentic/sdd-hooks.env` en la raíz del repo, con las mismas claves `SDD_*` en los cuatro. Los repos adoptados antes de 2.0.0 con `.claude/sdd-hooks.env` siguen funcionando: los hooks buscan `.agentic/` primero y caen a `.claude/`.
 
+**Qué repositorio es "el proyecto".** Los hooks no lo sacan de ninguna variable de entorno de un agente: lo resuelven del payload y del propio comando, por precedencia — el `file_path` de una escritura, el directorio que el comando declara (`cd <repo>`, `--dir`, `-C`, `--prefix`), la primera ruta absoluta del comando, el `cwd` de la llamada y, al final, la raíz de la sesión. Por eso una sesión abierta en el repositorio A que corre los tests de B deja la evidencia en B, en los cuatro agentes por igual.
+
 **Los hooks bash.** Los mismos siete scripts corren en Claude Code y en Codex CLI sin modificación, porque el esquema de payload y de decisión es idéntico: JSON por stdin con `tool_name`/`tool_input`, respuesta `hookSpecificOutput.permissionDecision`. En OpenCode los invoca un shim JS que traduce nombres de herramienta.
 
 ## Lo que se degrada, por agente
@@ -47,7 +49,7 @@ Los modelos por fase se emiten con ids de Anthropic, tomados del mapa `models` d
 No tiene hooks ni subagentes. Dos consecuencias, y ninguna se disimula:
 
 1. **El pipeline corre en modo solo** (`ORCHESTRATOR-solo.md`): una sesión adopta las diez fases en orden. El gatekeeper de fases no existe; la disciplina de insumos la sostiene el bucle de ejecución.
-2. **Los guardrails son instructivos, no bloqueantes.** Producción, secretos, PII, comentarios, trailers de IA y evidencia TDD están escritos como reglas en `AGENTS.md`, y Devin puede no cumplirlas. Fue una decisión explícita: no se agrega enforcement por CI ni por pre-commit.
+2. **Los guardrails son instructivos, no bloqueantes.** Producción, secretos, PII, comentarios, trailers de IA y evidencia TDD están escritos como reglas en `AGENTS.md`, y Devin puede no cumplirlas. Fue una decisión explícita: no se agrega enforcement por CI ni por pre-commit. Tampoco hay resolución automática del repositorio ni `tdd-evidence.log` escrito por un hook: el bucle deja la evidencia a mano, en el repo que está tocando.
 
 Si necesitás que esas reglas se hagan cumplir de verdad en Devin, el camino es un job de CI en el repo adoptante — fuera del alcance de este toolkit.
 
