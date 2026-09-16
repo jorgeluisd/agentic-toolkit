@@ -66,6 +66,11 @@ if is_test_run "$cmd"; then
     bg="$(printf '%s' "$INPUT" | jq -r '.tool_response.backgroundTaskId // empty' 2>/dev/null)"
   fi
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # La raíz la resolvió `read_input` con lo que el comando declara (--dir/-C/cd):
+  # esta línea va al log del repositorio que de verdad corrió los tests. Cuando ese
+  # repositorio no es el de la sesión queda dicho en la línea, que si no aparece en
+  # un log ajeno sin explicación.
+  xrepo=""; [ "${CROSS_REPO:-0}" = 1 ] && xrepo="repo-cruzado;"
   dir="$(evidence_dir)"
   mkdir -p "$dir" 2>/dev/null
   # Nunca registrar secretos ni datos personales en el log: se limpian por patrón.
@@ -74,8 +79,8 @@ if is_test_run "$cmd"; then
     # Este evento llegó al pasar a background, no al terminar: la salida está vacía y el
     # resultado real no llega por ningún evento. Inferirlo anotaba como verde "sin tests"
     # una corrida que terminó en rojo. La corrida se repite en primer plano.
-    printf '%s | exit=? | %s | sin salida: la llamada pasó a background (%s) | WARN=backgrounded\n' \
-      "$ts" "$safe_cmd" "$bg" >> "$dir/tdd-evidence.log" 2>/dev/null
+    printf '%s | exit=? | %s | sin salida: la llamada pasó a background (%s) | WARN=%sbackgrounded\n' \
+      "$ts" "$safe_cmd" "$bg" "$xrepo" >> "$dir/tdd-evidence.log" 2>/dev/null
   else
     # Las líneas JSON de log no son salida del runner: una suite que prueba caminos de
     # error imprime {"level":"error",…,"message":"Error: …"} y ahí no hay conteo ni
@@ -102,7 +107,7 @@ if is_test_run "$cmd"; then
       fi
     fi
     safe_sum="$(printf '%s' "$summary" | sed -E "s#$SECRET_RE#[REDACTED]#g; s#$EMAIL_RE#[email]#g")"
-    warn=""
+    warn="$xrepo"
     [ "$(printf '%s' "$INPUT" | jq -r '.is_interrupt == true or .tool_response.interrupted == true' 2>/dev/null)" = true ] && warn="${warn}interrupted;"
     # Salida filtrada por pipe: se pierde el resumen del runner.
     printf '%s' "$lc" | grep -Eq '\|[[:space:]]*(tail|head|grep|egrep|rg|cut|sed|awk|wc|less|more)([[:space:]]|$)' && warn="${warn}piped-output;"

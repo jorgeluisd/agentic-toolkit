@@ -6,7 +6,16 @@
 read_input
 cmd="$(jq_get '.tool_input.command')"
 [ -z "$cmd" ] && exit 0
-lc="$(printf '%s' "$cmd" | tr '[:upper:]' '[:lower:]')"
+# Los guardrails miran el CÓDIGO, no el dato. El cuerpo de un heredoc se escribe en
+# un archivo o se manda por stdin: un doc que lista `git commit --no-verify` entre las
+# acciones prohibidas no ejecuta ningún git, y mirando el comando crudo se denegaba
+# igual (lo mismo con un marcador de producción citado en una spec). `shell_code`
+# conserva el cuerpo cuando alimenta a un intérprete de shell, que sí lo ejecuta.
+# La única excepción es la atribución de IA: ahí el cuerpo del heredoc PUEDE ser el
+# mensaje del commit (`git commit -F - <<'EOF'`), y de eso se ocupa `commit_message`
+# sobre el comando entero.
+code="$(shell_code "$cmd")"
+lc="$(printf '%s' "$code" | tr '[:upper:]' '[:lower:]')"
 
 # 0) Conciliar las corridas que no recibieron ningún evento. Solo las vencidas: una
 # llamada en paralelo puede seguir corriendo y su evento todavía no llegó (common.sh).
@@ -14,7 +23,7 @@ flush_pending_test
 
 # 1) Producción: marcadores del proyecto (userConfig) + patrones genéricos.
 prod=0
-if [ -n "$PROD_MARKERS" ] && printf '%s' "$cmd" | grep -Eq "$PROD_MARKERS"; then prod=1; fi
+if [ -n "$PROD_MARKERS" ] && printf '%s' "$code" | grep -Eq "$PROD_MARKERS"; then prod=1; fi
 if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])(fly(ctl)?|vercel|railway|gcloud|eb|heroku)[[:space:]]+deploy|vercel[[:space:]].*--prod|supabase[[:space:]]+(db[[:space:]]+(push|reset)|link)|drizzle-kit[[:space:]]+(push|migrate)|db:(push|migrate|reset)|prisma[[:space:]]+(db[[:space:]]+push|migrate[[:space:]]+deploy)|artisan[[:space:]]+migrate(:fresh|:refresh|:reset|:rollback)?|alembic[[:space:]]+(upgrade|downgrade)|manage\.py[[:space:]]+migrate|dotnet[[:space:]]+ef[[:space:]]+database[[:space:]]+update|kubectl[[:space:]]+(apply|delete|rollout)|terraform[[:space:]]+(apply|destroy)|flyctl?[[:space:]]+secrets|fly[[:space:]]+ssh'; then
   printf '%s' "$lc" | grep -Eq 'staging|preview|local|127\.0\.0\.1|localhost|docker' || prod=1
 fi

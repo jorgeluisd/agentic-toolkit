@@ -32,7 +32,9 @@ Presentation (guards, pipes, controllers) se cubre en nivel 2 con DI manual + `E
 | `<build>` | `pnpm build` |
 | `<audit>` | `pnpm audit --audit-level=high` |
 
-Cada proyecto los copia en su `AGENTS.md` §6; si difieren (turbo, filtros), gana el `AGENTS.md`.
+Cada proyecto los copia en su `AGENTS.md` §6; si difieren (turbo, filtros), gana el `AGENTS.md`. Un símbolo que el proyecto no tiene se declara `no aplica` con el porqué: sin declarar, el `verifier` no puede distinguir una decisión de un olvido (check 12).
+
+`pnpm audit` necesita `pnpm-lock.yaml`: en un repo que todavía tiene `package-lock.json` sale `ERR_PNPM_AUDIT_NO_LOCKFILE` y no audita nada. Ahí `<audit>` es `npm audit --audit-level=high` **y** queda la migración del lockfile en el backlog: el check de seguridad no se apaga por una deuda de tooling, y la deuda no se tapa dejándolo verde.
 
 ## 2. Sufijos, suites y comandos
 

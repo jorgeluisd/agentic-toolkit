@@ -18,7 +18,21 @@ case "$agent" in
   *) exit 0 ;;
 esac
 
-# Feature activa. Sin ella no hay pipeline en curso y no hay nada que exigir.
+# El trabajo pedido puede ser sobre otro repositorio: una sesión abierta en A y un
+# subagente lanzado para B. El payload de Task no trae ni file_path ni command, así
+# que el único indicio son las rutas que nombra el prompt del subagente. Si apuntan
+# a un repositorio distinto al de la sesión, el gate se resuelve con los artefactos
+# de ESE repositorio — exigir los de A para revisar B manda a producir artefactos
+# basura en el repo que no se está tocando.
+target="$(_sdd_text_repo "$(jq_get '.tool_input.prompt')
+$(jq_get '.tool_input.description')")"
+if [ -n "$target" ] && [ "$target" != "$PROJECT_DIR" ]; then
+  _sdd_configure "$target"
+fi
+_sdd_mark_cross
+
+# Feature activa. Sin ella no hay pipeline en curso y no hay nada que exigir: un
+# repositorio sin `.current` no tiene pipeline en curso, y el gate no inventa uno.
 [ -f "$ARTIFACTS_ROOT/.current" ] || exit 0
 feature="$(tr -d '[:space:]' < "$ARTIFACTS_ROOT/.current")"
 [ -n "$feature" ] || exit 0
@@ -92,8 +106,16 @@ Para cambiar el umbral: SDD_PROGRESS_KEEP_TASKS en .agentic/sdd-hooks.env."
 fi
 
 if [ -n "$missing" ]; then
+  # De qué repositorio son los artefactos que faltan. Sin decirlo, una sesión
+  # anclada a otro repo lee la lista como si fuera del trabajo que pidió.
+  if [ "${CROSS_REPO:-0}" = 1 ]; then
+    where="La sesión está anclada a $SDD_SESSION_PROJECT_DIR; el trabajo pedido es sobre $PROJECT_DIR, y los artefactos de arriba son los de $PROJECT_DIR."
+  else
+    where="Estos artefactos son los de $PROJECT_DIR, el repositorio de la sesión. Si el trabajo pedido es sobre otro repositorio, no corras acá la fase que falta: abrí la sesión en la raíz de ese repositorio, que es donde viven sus artefactos."
+  fi
   deny "GATEKEEPER: no se puede lanzar '$agent' (nivel $level). Falta:$missing
 
+$where
 Cada agente recibe artefactos, no contexto de chat: sin el insumo previo el resultado sería inventado. Corré la fase que lo produce, o corregí <raíz>/.current si la feature activa no es la que creés."
 fi
 exit 0

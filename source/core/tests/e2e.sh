@@ -156,6 +156,76 @@ decc(){ local o; o="$(printf '%s' "$2" | env CLAUDE_PROJECT_DIR="$3" bash "$HOOK
 DEPLOY="cd $C/repo-a && aws lambda update-function-code --function-name marcador-del-equipo"
 t "marcador del repo frena el deploy"          "$(decc pre-bash.sh "$(pc "$DEPLOY")" "$C")"                ask
 t "sin marcador, el mismo comando pasa"        "$(decc pre-bash.sh "$(pc "cd $C/repo-b && aws lambda update-function-code --function-name x")" "$C")" allow
+# El mismo defecto del guardrail de git, en el de producción: citar el marcador en una
+# spec no es actuar sobre producción.
+HDPROD="$(printf 'cat >| spec.md <<%sEOF%s\n- marcador-del-equipo es el cluster de producción\nEOF\n' "'" "'")"
+t "el marcador citado en un doc no dispara"    "$(decc pre-bash.sh "$(pc "$HDPROD")" "$C/repo-a")"         allow
+t "y el deploy real sigue frenado"             "$(decc pre-bash.sh "$(pc 'aws lambda update-function-code --function-name marcador-del-equipo')" "$C/repo-a")" ask
+
+# --------------------------------------- el repositorio lo decide el comando
+# La sesión está parada en repo-a, con su feature activa. Todo comando que corría los
+# tests de otro repositorio quedaba registrado en el pipeline de repo-a, y el gate de
+# subagentes pedía artefactos de repo-a para revisar el otro.
+sec "Anclaje por comando · el repositorio que corre los tests"
+mkdir -p "$C/repo-c/src" "$C/repo-c/docs/sdd/0003-timing"
+git -C "$C/repo-c" init -q .
+git -C "$C/repo-c" config --local user.name "Dev Prueba"
+git -C "$C/repo-c" config --local user.email "dev@example.com"
+printf '0003-timing\n' > "$C/repo-c/docs/sdd/.current"
+AL="$C/repo-a/docs/sdd/0007-alta/tdd-evidence.log"
+CL="$C/repo-c/docs/sdd/0003-timing/tdd-evidence.log"
+UL="$C/repo-b/docs/sdd/_unassigned/tdd-evidence.log"
+# Sesión anclada a repo-a, siempre: lo único que cambia es el comando.
+xev(){ printf '%s' "$(jq -nc --arg c "$1" --arg d "$C/repo-a" \
+        '{hook_event_name:"PostToolUse",tool_name:"Bash",cwd:$d,tool_input:{command:$c},
+          tool_response:{stdout:"Tests: 166 passed, 166 total",stderr:"",interrupted:false}}')" \
+      | env CLAUDE_PROJECT_DIR="$C/repo-a" bash "$HOOKS/post-bash.sh" >/dev/null 2>&1; }
+cnt(){ grep -c '166 passed' "$1" 2>/dev/null || echo 0; }
+rm -f "$AL" "$CL"
+xev "cd $C/repo-c && pnpm exec jest --silent"
+t "cd <B>: la evidencia va al log de B"        "$(cnt "$CL")"                             1
+t "y no toca ningún archivo de A"              "$(yn "$AL")"                              no
+t "la línea dice de dónde salió"               "$(grep -c 'WARN=repo-cruzado' "$CL")"     1
+: >| "$CL"; xev "pnpm --dir $C/repo-c exec jest"
+t "--dir <B>: la evidencia va al log de B"     "$(cnt "$CL")"                             1
+: >| "$CL"; xev "pnpm -C $C/repo-c test"
+t "-C <B>: la evidencia va al log de B"        "$(cnt "$CL")"                             1
+t "sigue sin tocar ningún archivo de A"        "$(yn "$AL")"                              no
+xev "pnpm test"
+t "sin cd ni --dir sigue escribiendo en A"     "$(cnt "$AL")"                             1
+t "y esa línea no se marca cruzada"            "$(grep -c 'repo-cruzado' "$AL")"          0
+rm -rf "$C/repo-b/docs"
+xev "cd $C/repo-b && pnpm test"
+t "B sin .current: va a su _unassigned"        "$(cnt "$UL")"                             1
+t "nunca al log de otro repositorio"           "$(cnt "$AL")"                             1
+# La marca de una corrida cruzada la deja pre-bash en el repositorio de destino, y
+# user-prompt —que concilia al cerrar el turno— resuelve contra el de la sesión: sin
+# el índice de pendientes cruzados esa marca no la conciliaba nadie.
+: >| "$CL"; rm -rf "$C/repo-c/docs/sdd/0003-timing/.tdd-pending"
+printf '%s' "$(jq -nc --arg c "cd $C/repo-c && pnpm vitest run src/t.spec.ts" --arg d "$C/repo-a" \
+  '{tool_name:"Bash",cwd:$d,tool_input:{command:$c},tool_use_id:"toolu_x1"}')" \
+  | env CLAUDE_PROJECT_DIR="$C/repo-a" bash "$HOOKS/pre-bash.sh" >/dev/null 2>&1
+t "la marca queda en el repo de destino"       "$(find "$C/repo-c/docs/sdd/0003-timing/.tdd-pending" -type f 2>/dev/null | wc -l | tr -d ' ')" 1
+printf '%s' "$(jq -nc --arg d "$C/repo-a" '{hook_event_name:"UserPromptSubmit",cwd:$d,prompt:"seguimos"}')" \
+  | env CLAUDE_PROJECT_DIR="$C/repo-a" bash "$HOOKS/user-prompt.sh" >/dev/null 2>&1
+t "user-prompt concilia la marca cruzada"      "$(grep -c 'exit=!0.*repo-cruzado' "$CL")" 1
+
+# El gatekeeper resuelve la feature en el repositorio del trabajo pedido. Mandar a
+# "correr la fase que lo produce" en el repo de la sesión es producir artefactos
+# basura en un repo que nadie está tocando.
+sec "Gatekeeper · el repositorio del trabajo pedido"
+gk(){ printf '%s' "$(jq -nc --arg a "$1" --arg p "$2" --arg d "$C/repo-a" \
+       '{tool_name:"Task",cwd:$d,tool_input:{subagent_type:$a,prompt:$p}}')" \
+     | env CLAUDE_PROJECT_DIR="$C/repo-a" bash "$HOOKS/pre-task.sh" 2>/dev/null; }
+gkdec(){ local o; o="$(gk "$1" "$2")"
+  if [ -z "$o" ]; then echo allow
+  else printf '%s' "$o" | jq -r '.hookSpecificOutput.permissionDecision // "allow"'; fi; }
+t "verifier de la sesión sin insumos deniega"  "$(gkdec verifier 'revisá la rama')"                         deny
+t "y nombra la feature de la sesión"           "$(gk verifier 'revisá la rama' | grep -c '0007-alta')"      1
+t "trabajo sobre B no nombra features de A"    "$(gk verifier "revisá la rama en $C/repo-c" | grep -c '0007-alta')" 0
+t "nombra la feature del repo pedido"          "$(gk verifier "revisá la rama en $C/repo-c" | grep -c '0003-timing')" 1
+t "y dice a qué repo está anclada la sesión"   "$(gk verifier "revisá la rama en $C/repo-c" | grep -c 'anclada a')" 1
+
 
 
 sec "Gatekeeper · sin feature activa no interviene"
@@ -220,6 +290,27 @@ t "push a la rama base"                    "$(cmd 'git push origin develop')"   
 t "push a rama de feature"                 "$(cmd 'git push origin feat/alta-pedido')"                   allow
 t "salida de tests filtrada por pipe"      "$(cmd 'npm test | tail -5')"                                deny
 t "comando inocuo"                         "$(cmd 'ls -la')"                                            allow
+
+sec "Guardrails · el cuerpo de un heredoc es dato, no comando"
+# Un doc que lista las acciones prohibidas no ejecuta ninguna. El guardrail miraba el
+# comando crudo y denegaba cualquier llamada que *contuviera* la cadena: escribir la
+# documentación del propio guardrail quedaba prohibido por el guardrail.
+hd(){ printf 'cat >| doc.md <<%sEOF%s\n%s\nEOF\n' "'" "'" "$1"; }
+t "doc que menciona el flag de los hooks"   "$(cmd "$(hd '- git commit --no-verify está prohibido')")"          allow
+t "doc que menciona el push forzado"        "$(cmd "$(hd '- nunca git push --force sobre una rama')")"      allow
+t "doc que menciona el push a la base"      "$(cmd "$(hd '- git push origin develop lo decide un humano')")" allow
+t "doc que menciona un flag de instalación" "$(cmd "$(hd '- prohibido --unsafe-perm al instalar')")"              allow
+t "doc que menciona un reset duro"          "$(cmd "$(hd '- git reset --hard borra trabajo')")"            allow
+t "doc que menciona leer un .env"           "$(cmd "$(hd '- prohibido cat .env.production')")"                     allow
+t "doc que menciona un commit -a"           "$(cmd "$(hd '- git commit -a versiona de más')")"             allow
+# Ejecutado de verdad sigue denegado, y un heredoc no tapa el comando que lo acompaña.
+t "el flag ejecutado de verdad"             "$(cmd "git commit --no-verify -m 'x'")"                            deny
+t "el push forzado ejecutado de verdad"     "$(cmd 'git push --force origin feat/x')"                       deny
+t "el push a la base ejecutado de verdad"   "$(cmd 'git push origin develop')"                              ask
+t "heredoc + comando real: manda el real"   "$(cmd "$(hd '- doc')"$'\n'"git commit --no-verify -m 'x'")"       deny
+# Un heredoc que alimenta a un intérprete SÍ se ejecuta: ahí el cuerpo es código.
+BHD="$(printf 'bash <<%sEOF%s\ngit push --force origin main\nEOF\n' "'" "'")"
+t "bash <<EOF ejecuta su cuerpo"            "$(cmd "$BHD")"                                                deny
 
 sec "Evidencia TDD"
 if command -v node >/dev/null && command -v npm >/dev/null; then

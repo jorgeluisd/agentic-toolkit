@@ -54,6 +54,7 @@ Detalle y checks en la skill local de invariantes.
 | build | `<comando>` |
 | audit | `<comando>` |
 | dev / db local | `<comando>` |
+Ningún renglón queda vacío: el comando, o el literal `no aplica` con el porqué en la misma celda (`no aplica — sin base de datos`). Un símbolo sin declarar no es lo mismo que un símbolo que el proyecto no tiene, y el `verifier` los trata distinto (check 12): sin `typecheck`, `lint` o `test` el gate no abre; los demás sin declarar son FAIL solo si el diff los necesita, y GAP si no.
 Estos son los símbolos que usan `strict-tdd`, `delivery-workflow`, el `verifier` y `/check-arch`. Plugin de stack instalado: `<stack-typescript | …>`.
 Configuración de hooks del core: `{{CONFIG_FILE}}` (`SDD_PROD_MARKERS`, `SDD_BASE_BRANCH`, `SDD_TENANT_FIELD`, `SDD_TEST_CMD_RE`, `SDD_COMMENT_MAX_BLOCK`, `SDD_COMMENT_MAX_PCT`).
 
