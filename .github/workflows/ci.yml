@@ -34,6 +34,15 @@ jobs:
       - name: E2E de los hooks sobre un repo real
         run: bash source/core/tests/e2e.sh
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Shim de OpenCode contra los hooks reales
+        run: |
+          node bin/atk build --target=opencode
+          node source/core/tests/opencode-shim.mjs
+
   build:
     name: build · sin drift y sin tokens de vendor
     runs-on: ubuntu-latest

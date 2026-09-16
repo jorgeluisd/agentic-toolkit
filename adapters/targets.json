@@ -48,6 +48,11 @@
       "CONFIG_FILE": ".agentic/sdd-hooks.env",
       "LOCAL_STORE": ".agentic/sdd",
       "ATTRIBUTION_OFF": "OpenCode no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio"
+    },
+    "models": {
+      "opus": "anthropic/claude-opus-5",
+      "sonnet": "anthropic/claude-sonnet-5",
+      "haiku": "anthropic/claude-haiku-4-5-20251001"
     }
   },
   "devin": {
