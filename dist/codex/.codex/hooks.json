@@ -1,0 +1,75 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/sdd-tdd-core/hooks/pre-bash.sh\"",
+            "timeout": 10,
+            "statusMessage": "Guardrails: producción y git"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/sdd-tdd-core/hooks/pre-file.sh\"",
+            "timeout": 5,
+            "statusMessage": "Guardrail: archivos sensibles"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/sdd-tdd-core/hooks/pre-task.sh\"",
+            "timeout": 5,
+            "statusMessage": "Gatekeeper: insumos de la fase"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/sdd-tdd-core/hooks/post-bash.sh\"",
+            "timeout": 10,
+            "statusMessage": "Evidencia TDD"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/sdd-tdd-core/hooks/post-file.sh\"",
+            "timeout": 10,
+            "statusMessage": "Guardrails: datos personales y migraciones"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/sdd-tdd-core/hooks/user-prompt.sh\"",
+            "timeout": 5,
+            "statusMessage": "Clasificación SDD"
+          }
+        ]
+      }
+    ]
+  }
+}

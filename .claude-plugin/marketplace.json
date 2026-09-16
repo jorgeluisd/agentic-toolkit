@@ -1,21 +1,21 @@
 {
   "name": "agentic-toolkit",
-  "version": "1.6.1",
   "description": "Marketplace de plugins de Claude Code para desarrollo con SDD + Strict TDD: un core de proceso agnostico de lenguaje y un plugin de skills por stack.",
   "owner": {
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
   },
+  "version": "2.0.0",
   "plugins": [
     {
       "name": "sdd-tdd-core",
-      "description": "Proceso SDD+TDD agnostico de lenguaje: 10 agentes, 2 gates humanos, protocolo de artefactos, comandos de sesion, strict-tdd y delivery-workflow, guardrails por hooks. Instalar siempre.",
+      "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
       "source": "./plugins/sdd-tdd-core",
       "category": "development"
     },
     {
       "name": "stack-typescript",
-      "description": "Skills tecnicas para TypeScript: NestJS + Next.js + Drizzle/Postgres + RLS + Vitest, con plantillas de settings, CI y commitlint. Instalar junto con sdd-tdd-core en proyectos TypeScript.",
+      "description": "Skills tecnicas del stack TypeScript para sdd-tdd-core: Onion + Screaming Architecture con enforcement por ESLint boundaries, dominio puro, CQRS y jobs, errores y Result, persistencia Drizzle/Postgres, multi-tenancy con RLS, testing con Vitest, seguridad baseline, logging con pino, frontend Next.js + React 19 + Tailwind 4, y actualizacion de dependencias con pnpm. Incluye plantillas de settings, CI y commitlint.",
       "source": "./plugins/stack-typescript",
       "category": "development"
     }

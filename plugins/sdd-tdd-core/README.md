@@ -24,18 +24,18 @@ Requiere `bash`, `git` y [`jq`](https://jqlang.github.io/jq/) en el `PATH`: los 
 Los valores que el plugin no puede adivinar, resueltos en este orden:
 
 ```
-.claude/sdd-hooks.env del proyecto   →   userConfig del plugin   →   default
+.agentic/sdd-hooks.env del proyecto   →   userConfig del plugin   →   default
         (manda)                              (fallback)
 ```
 
 El archivo del proyecto se versiona y es la fuente de verdad para ese repo. El `userConfig` existe para instalaciones a nivel de usuario compartidas por varios repos. Plantilla en [`templates/sdd-hooks.env`](templates/sdd-hooks.env).
 
-**Qué repositorio es "el proyecto".** No la raíz de la sesión: la sesión puede abrirse en una carpeta que contiene varios repositorios, y ahí no hay configuración que cargar. Cada hook se ancla en lo que la herramienta está tocando y sube hasta el primer directorio con `.claude/sdd-hooks.env` y, si no hay ninguno, con `.git` (worktrees y submódulos resuelven a su propia raíz). Las anclas, por orden: el `file_path` del Write/Edit, la primera ruta absoluta del comando en un Bash —heurística, solo se acepta dentro del árbol de la sesión—, el `cwd` del payload y, al final, la raíz de la sesión. Así la configuración que se carga y la evidencia que se escribe son siempre las del repositorio del cambio.
+**Qué repositorio es "el proyecto".** No la raíz de la sesión: la sesión puede abrirse en una carpeta que contiene varios repositorios, y ahí no hay configuración que cargar. Cada hook se ancla en lo que la herramienta está tocando y sube hasta el primer directorio con `.agentic/sdd-hooks.env` y, si no hay ninguno, con `.git` (worktrees y submódulos resuelven a su propia raíz). Las anclas, por orden: el `file_path` del Write/Edit, la primera ruta absoluta del comando en un Bash —heurística, solo se acepta dentro del árbol de la sesión—, el `cwd` del payload y, al final, la raíz de la sesión. Así la configuración que se carga y la evidencia que se escribe son siempre las del repositorio del cambio.
 
 | Clave | `userConfig` | Default | Efecto |
 |---|---|---|---|
 | `SDD_ARTIFACT_STORE` | `artifact_store` | `repo` | Política del store de artefactos: `repo`, `local` o `engram`. Ver `ORCHESTRATOR.md` §3 |
-| `SDD_ARTIFACTS_DIR` | `artifacts_dir` | `docs/sdd` con `repo`, `.claude/sdd` con el resto | Raíz donde se materializan los archivos. Relativa al proyecto, absoluta o con `~` |
+| `SDD_ARTIFACTS_DIR` | `artifacts_dir` | `docs/sdd` con `repo`, `.agentic/sdd` con el resto | Raíz donde se materializan los archivos. Relativa al proyecto, absoluta o con `~` |
 | `SDD_BASE_BRANCH` | `base_branch` | `develop` | Rama base del proyecto. El hook pide confirmación ante push directo a ella, y ante merge/rebase que la involucre |
 | `SDD_PROD_MARKERS` | `prod_markers` | vacío | Regex extendida (`grep -E`) que identifica un comando como dirigido a producción. Se suma a los patrones genéricos de deploy y migración |
 | `SDD_TENANT_FIELD` | `tenant_field` | vacío | Campo de tenant. Activa los checks de DTOs sin tenant y de RLS en migraciones. Vacío = single-tenant, checks apagados |
@@ -86,7 +86,7 @@ El que planifica no implementa; el que implementa no se revisa a sí mismo. `ver
 
 ## Skills
 
-| Skill | Cuándo la carga Claude |
+| Skill | Cuándo la carga el agente |
 |---|---|
 | `sdd-pipeline` | Ante cualquier pedido de implementar, agregar, crear, cambiar, arreglar o migrar código — **aunque no se invoque ningún comando** |
 | `strict-tdd` | Al implementar una tarea con TDD ON, o al auditar su evidencia. Protocolo RED-GREEN-TRIANGULATE-REFACTOR de 7 fases |
@@ -153,7 +153,7 @@ Los guardrails son regex sobre el contenido que el agente va a escribir. Cubren 
 |---|---|
 | Emails que no sean `@example.com/org/net`, `@test.local` o `@localhost` · Teléfonos en formato internacional (`+` y 8–15 dígitos) | Nombres y apellidos, direcciones, documentos nacionales (RUT, DNI, CUIT, CPF, NIF), tarjetas, fechas de nacimiento, IPs, **teléfonos en formato local** (`11 5555-5555` no matchea) |
 
-**Corridas de tests** — `SDD_TEST_CMD_RE` reconoce los runners de cada stack y los comandos agregados de gate (`pnpm|npm|yarn|bun|turbo` + `test`, `check`, `verify`, `validate`, `run ci`). `npm ci` queda fuera a propósito: instala dependencias. Un alias propio (`pnpm gate`, `make qa`) no se reconoce sin declarar `SDD_TEST_CMD_RE` en `.claude/sdd-hooks.env`. El cuerpo de un heredoc no se evalúa: escribir prosa que menciona `vitest` dentro de un `<<EOF` no cuenta como corrida.
+**Corridas de tests** — `SDD_TEST_CMD_RE` reconoce los runners de cada stack y los comandos agregados de gate (`pnpm|npm|yarn|bun|turbo` + `test`, `check`, `verify`, `validate`, `run ci`). `npm ci` queda fuera a propósito: instala dependencias. Un alias propio (`pnpm gate`, `make qa`) no se reconoce sin declarar `SDD_TEST_CMD_RE` en `.agentic/sdd-hooks.env`. El cuerpo de un heredoc no se evalúa: escribir prosa que menciona `vitest` dentro de un `<<EOF` no cuenta como corrida.
 
 Hoy ampliarlos requiere editar `hooks/common.sh` (`SECRET_RE`, `PHONE_RE`) en una copia del plugin: no hay clave de configuración para patrones propios. Si tu proyecto maneja documentos nacionales o teléfonos locales, es el primer lugar donde mirar.
 
@@ -197,10 +197,10 @@ En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las 
 ## Tests
 
 ```bash
-bash plugins/sdd-tdd-core/tests/e2e.sh
+bash source/core/tests/e2e.sh
 ```
 
-68 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda Claude Code, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, y el cierre con reconciliación de capacidad y archivado.
+183 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda el agente, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, el orden de búsqueda del archivo de configuración, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, el cierre con reconciliación de capacidad y archivado, y una sección que corre los mismos hooks con payload de Codex CLI, sin ninguna variable de entorno de Claude.
 
 Solo necesita `bash`, `git` y `jq`; si además hay `node`, la evidencia sale de una corrida real en vez de un payload equivalente. Sale 0 si todo pasa, 1 si algo falla. Corre en CI en cada push y PR, junto a `bash -n` y `shellcheck` sobre los seis hooks.
 
@@ -211,7 +211,7 @@ Solo necesita `bash`, `git` y `jq`; si además hay `node`, la evidencia sale de 
 | Plantilla | Destino |
 |---|---|
 | `templates/CLAUDE.md` | `CLAUDE.md` del proyecto: fuentes de verdad, stack, mapa de contextos, invariantes, comandos, git |
-| `templates/sdd-hooks.env` | `.claude/sdd-hooks.env` |
+| `templates/sdd-hooks.env` | `.agentic/sdd-hooks.env` |
 | `templates/invariants-skill/SKILL.md` | `.claude/skills/<producto>-invariants/SKILL.md` |
 | `templates/pull_request_template.md` | `.github/pull_request_template.md` |
 

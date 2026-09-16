@@ -61,13 +61,13 @@ Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una refere
 
 ### Stores
 
-`SDD_ARTIFACT_STORE` elige la política; `SDD_ARTIFACTS_DIR` elige dónde se materializan los archivos. Ambos se declaran en `.claude/sdd-hooks.env` del repo (o el `userConfig` del plugin como fallback).
+`SDD_ARTIFACT_STORE` elige la política; `SDD_ARTIFACTS_DIR` elige dónde se materializan los archivos. Ambos se declaran en `.agentic/sdd-hooks.env` del repo (o el `userConfig` del plugin como fallback).
 
 | Store | Raíz por defecto | Para qué |
 |---|---|---|
 | `repo` (default) | `docs/sdd/` | Registro versionado y compartido con el equipo. `gates.md` es auditable en el PR |
-| `local` | `.claude/sdd/` | Fuera del registro: el repo queda intacto. Se pierde el compartir con el equipo y la auditoría del gate |
-| `engram` | `.claude/sdd/` | Los artefactos narrativos van a memoria persistente bajo la misma clave `sdd/<change>/<artefacto>`; en disco queda solo lo que los hooks necesitan. Sin memoria conectada degrada a `local` |
+| `local` | `.agentic/sdd/` | Fuera del registro: el repo queda intacto. Se pierde el compartir con el equipo y la auditoría del gate |
+| `engram` | `.agentic/sdd/` | Los artefactos narrativos van a memoria persistente bajo la misma clave `sdd/<change>/<artefacto>`; en disco queda solo lo que los hooks necesitan. Sin memoria conectada degrada a `local` |
 
 **Degradación del store.** `engram` describe una intención, no una garantía: nada en los hooks puede comprobar que un servidor de memoria esté conectado. Antes de la primera fase, el orquestador verifica que las herramientas de memoria estén realmente disponibles. Si no lo están, **cae a `local`, lo dice en una línea y sigue** — nunca aborta el pipeline ni manda artefactos a un destino que no existe. Los hooks son indiferentes a esto: la evidencia y el estado de sesión van al mismo sitio en los tres stores.
 

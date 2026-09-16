@@ -21,7 +21,7 @@ jobs:
 
       - name: Sintaxis de los hooks
         run: |
-          for f in plugins/sdd-tdd-core/hooks/*.sh plugins/sdd-tdd-core/tests/*.sh; do
+          for f in source/core/hooks/*.sh source/core/tests/*.sh; do
             bash -n "$f" || exit 1
             echo "ok  $f"
           done
@@ -29,20 +29,49 @@ jobs:
       - name: ShellCheck
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck --severity=error plugins/sdd-tdd-core/hooks/*.sh plugins/sdd-tdd-core/tests/*.sh
+          shellcheck --severity=error source/core/hooks/*.sh source/core/tests/*.sh
 
       - name: E2E de los hooks sobre un repo real
-        run: bash plugins/sdd-tdd-core/tests/e2e.sh
+        run: bash source/core/tests/e2e.sh
 
-  manifests:
-    name: manifiestos · JSON y versiones
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Shim de OpenCode contra los hooks reales
+        run: |
+          node bin/atk build --target=opencode
+          node source/core/tests/opencode-shim.mjs
+
+  build:
+    name: build · sin drift y sin tokens de vendor
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: JSON válido
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: La salida commiteada coincide con source/
+        run: node bin/atk build --check
+
+      - name: source/ no nombra a ningun agente concreto
+        run: |
+          # Las unicas menciones permitidas son las de compatibilidad en los hooks
+          # (CLAUDE_PLUGIN_OPTION_*, CLAUDE_PROJECT_DIR, .claude/ como fallback) y
+          # la lista de trailers prohibidos de delivery-workflow.
+          if grep -rInE 'CLAUDE\.md|\$\{CLAUDE_PLUGIN_ROOT\}|/sdd-tdd-core:' source --include='*.md'; then
+            echo "token de vendor en source/: usa un placeholder de adapters/targets.json"
+            exit 1
+          fi
+          echo "ok  sin tokens de vendor"
+
+      - name: JSON valido
         run: |
           for f in .claude-plugin/marketplace.json \
+                   adapters/targets.json \
+                   source/*/manifest.json \
                    plugins/*/.claude-plugin/plugin.json \
                    plugins/sdd-tdd-core/hooks/hooks.json; do
             jq empty "$f" || exit 1

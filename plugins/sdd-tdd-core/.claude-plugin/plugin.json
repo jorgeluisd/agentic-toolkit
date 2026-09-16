@@ -1,8 +1,8 @@
 {
   "name": "sdd-tdd-core",
   "displayName": "SDD/TDD Core",
-  "version": "1.6.1",
-  "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje: 10 agentes (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos en docs/sdd/, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
+  "version": "2.0.0",
+  "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
   "author": {
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
@@ -21,14 +21,14 @@
     "artifact_store": {
       "type": "string",
       "title": "Store de artefactos",
-      "description": "Donde viven los artefactos del pipeline: repo (versionados en docs/sdd/, auditables en el PR), local (fuera del registro, en .claude/sdd/) o engram (memoria persistente bajo la clave sdd/<change>/<artefacto>). Vacio = repo.",
+      "description": "Donde viven los artefactos del pipeline: repo (versionados, auditables en el PR), local (fuera del registro, en .agentic/sdd) o engram (memoria persistente bajo la clave sdd/<change>/<artefacto>). Vacio = repo.",
       "default": "repo",
       "required": false
     },
     "artifacts_dir": {
       "type": "string",
       "title": "Raiz de artefactos",
-      "description": "Ruta donde se materializan los archivos del pipeline. Relativa al proyecto, absoluta o con ~. Vacio = docs/sdd si el store es repo, .claude/sdd en los demas.",
+      "description": "Ruta donde se materializan los archivos del pipeline. Relativa al proyecto, absoluta o con ~. Vacio = docs/sdd si el store es repo, .agentic/sdd en los demas.",
       "default": "",
       "required": false
     },

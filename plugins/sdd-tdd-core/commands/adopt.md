@@ -34,7 +34,7 @@ Detecta, y muestra en una tabla `valor · evidencia`, cada uno de estos (los arg
 
 ## Paso 2 — Configuración y checkpoint 1
 
-Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.claude/sdd-hooks.env` con los valores del checkpoint 0. Crea `<raíz de artefactos>/.gitkeep` solo si el store es `repo`. No crees `specs/` ni `_archive/` a mano: los crea el `archiver` al cerrar el primer change (ver `ORCHESTRATOR.md` §3.1).
+Copia `templates/settings.json` del stack instalado a `.claude/settings.json` (reemplaza el actual; conserva en `allow` solo los permisos propios del repo que sigan haciendo falta, por ejemplo servidores MCP o scripts locales; no conserves hooks viejos). Si no hay plugin de stack, escribe un `settings.json` mínimo con `includeCoAuthoredBy: false` y los `deny` de `.env*`. Copia `templates/sdd-hooks.env` de este plugin a `.agentic/sdd-hooks.env` con los valores del checkpoint 0. Crea `<raíz de artefactos>/.gitkeep` solo si el store es `repo`. No crees `specs/` ni `_archive/` a mano: los crea el `archiver` al cerrar el primer change (ver `ORCHESTRATOR.md` §3.1).
 
 Escribe `SDD_ARTIFACT_STORE` y, si el store elegido no usa la raíz por defecto, `SDD_ARTIFACTS_DIR`.
 
@@ -52,7 +52,7 @@ Con `local` o `engram`, la raíz entera — y entonces el `.gitkeep` no se crea:
 
 ```gitignore
 # Artefactos del pipeline SDD (fuera del registro versionado)
-.claude/sdd/
+.agentic/sdd/
 ```
 
 Si el repo ya tenía artefactos commiteados que el nuevo store deja fuera, sácalos del índice conservándolos en disco (`git rm -r --cached <raíz>` o los dos archivos de estado según el caso). Commit `chore(infra): adopt sdd-tdd toolkit settings and hooks config`.
@@ -61,7 +61,7 @@ Si el repo ya tenía artefactos commiteados que el nuevo store deja fuera, sáca
 
 ## Paso 3 — CLAUDE.md
 
-Escribe `CLAUDE.md` nuevo **en la raíz** con `templates/CLAUDE.md` de este plugin, tomando el contenido real del CLAUDE.md actual (esté en raíz o en `.claude/`), de los ADRs y de las skills locales: fuentes de verdad, producto en 3 líneas, stack locked con ADRs, mapa screaming (= scopes de commit), invariantes (≤ 10, con ADR), prohibiciones que el plugin no cubre, comandos §6 con los comandos reales, idioma, git (rama base, estrategia de merge), referencias locales. Fuera todo lo que ya define el plugin (pipeline, Strict TDD, comandos slash, reglas genéricas de capas/tenant, memoria, formato de commit). Commit `docs(docs): rewrite claude md with sdd-tdd template`.
+Escribe `CLAUDE.md` nuevo **en la raíz** con `templates/CLAUDE.md` de este plugin, tomando el contenido real del CLAUDE.md actual (esté en raíz o en `.claude/`), de los ADRs y de las skills locales: fuentes de verdad, producto en 3 líneas, stack locked con ADRs, mapa screaming (= scopes de commit), invariantes (≤ 10, con ADR), prohibiciones que el plugin no cubre, comandos §6 con los comandos reales, idioma, git (rama base, estrategia de merge), referencias locales. Fuera todo lo que ya define el plugin (pipeline, Strict TDD, comandos slash, reglas genéricas de capas/tenant, memoria, formato de commit). Commit `docs(docs): rewrite agent context doc with sdd-tdd template`.
 
 ## Paso 4 — Skill de invariantes y checkpoint 2
 
