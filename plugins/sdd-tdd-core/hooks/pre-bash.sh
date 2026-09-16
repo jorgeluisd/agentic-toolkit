@@ -40,7 +40,7 @@ fi
 if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-z]*f|branch[[:space:]]+-D|checkout[[:space:]]+--[[:space:]]+\.|restore[[:space:]]+\.)'; then
   ask "GUARDRAIL GIT: comando destructivo sobre el árbol de trabajo o ramas. Confirma."; exit 0
 fi
-if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+commit' && printf '%s' "$lc" | grep -Eiq "$AI_TRAILER_RE"; then
+if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+commit' && commit_message "$cmd" | grep -Eiq "$AI_TRAILER_RE"; then
   deny "El mensaje de commit contiene atribución de IA (co-author/session/generated). Convención: sin trailers ni menciones de IA. Reescribe el mensaje."; exit 0
 fi
 if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+commit' && printf '%s' "$lc" | grep -Eq '(-a[[:space:]]|--all|-am[[:space:]])' ; then

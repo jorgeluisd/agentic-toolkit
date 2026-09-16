@@ -181,6 +181,14 @@ t "lectura de .env"                        "$(rd "$R/.env")"                    
 
 sec "Guardrails de shell y git"
 t "commit con atribución de IA"            "$(cmd 'git commit -m "x" -m "Co-Authored-By: a <b@c.d>"')"  deny
+# El guardrail mira el mensaje, no el comando entero: `delivery-workflow` §3 manda
+# verificar cada commit con un grep que nombra esos mismos patrones, y encadenado al
+# commit quedaba denegado (la convención se bloqueaba a sí misma).
+HD_MSG="git commit -F - <<'EOF'"$'\n'"feat(x): add x"$'\n'$'\n'"Co-Authored-By: a <b@c.d>"$'\n'"EOF"
+t "trailer por heredoc en el mensaje"      "$(cmd "$HD_MSG")"                                           deny
+t "trailer con --trailer"                  "$(cmd 'git commit -m "feat(x): add x" --trailer "Co-Authored-By: a <b@c.d>"')" deny
+t "commit + verificación de la convención" "$(cmd "git commit -m \"fix(x): correct y\" && git log -1 --format='%B' | grep -iE 'co-authored-by|anthropic'")" allow
+t "grep de trailers sin commit"            "$(cmd "git log --format='%B' | grep -iE 'co-authored-by|anthropic'")" allow
 t "commit limpio"                          "$(cmd 'git commit -m "feat(orders): add creation"')"        allow
 t "push --force"                           "$(cmd 'git push --force origin main')"                      deny
 t "push --no-verify"                       "$(cmd 'git push --no-verify origin x')"                     deny
