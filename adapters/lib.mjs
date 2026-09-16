@@ -16,6 +16,10 @@ export function render(text, vars, where) {
   });
 }
 
+export function readText(path, vars) {
+  return render(readFileSync(path, 'utf8'), vars, path);
+}
+
 export function walk(dir, base = dir, acc = []) {
   for (const name of readdirSync(dir).sort()) {
     const path = join(dir, name);
@@ -75,4 +79,39 @@ export function flush(out, outDir, { check = false, prune = true } = {}) {
     }
   }
   return diffs;
+}
+
+// Clasifica un archivo del plugin por su rol, que es lo que decide dónde va en
+// cada target: las skills tienen carpeta propia, los comandos se vuelven prompts
+// y el resto viaja junto como cuerpo del plugin.
+export function classify(file) {
+  const skill = file.match(/^skills\/([^/]+)\/SKILL\.md$/);
+  if (skill) return { kind: 'skill', name: skill[1] };
+  const command = file.match(/^commands\/([^/]+)\.md$/);
+  if (command) return { kind: 'command', name: command[1] };
+  const agent = file.match(/^agents\/([^/]+)\.md$/);
+  if (agent) return { kind: 'agent', name: agent[1] };
+  if (file.startsWith('hooks/')) return { kind: 'hook', name: file.slice('hooks/'.length) };
+  if (file.startsWith('tests/')) return { kind: 'test', name: file.slice('tests/'.length) };
+  return { kind: 'other', name: file };
+}
+
+// Separa el frontmatter YAML del cuerpo. No parsea YAML: los adaptadores
+// reescriben el frontmatter entero, nunca editan claves sueltas.
+export function splitFrontmatter(text) {
+  const match = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!match) return { fields: {}, body: text };
+  const fields = {};
+  for (const line of match[1].split('\n')) {
+    const kv = line.match(/^([a-zA-Z-]+):\s*(.*)$/);
+    if (kv) fields[kv[1]] = kv[2].replace(/^"(.*)"$/, '$1');
+  }
+  return { fields, body: match[2] };
+}
+
+export function withFrontmatter(fields, body) {
+  const lines = Object.entries(fields)
+    .filter(([, v]) => v !== undefined && v !== '')
+    .map(([k, v]) => `${k}: ${/[:#]/.test(String(v)) ? JSON.stringify(v) : v}`);
+  return `---\n${lines.join('\n')}\n---\n${body}`;
 }

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# UserPromptSubmit — si el mensaje del usuario parece un pedido de cambio de código y no es un
+# comando, agrega al contexto un recordatorio de que el cambio va por el pipeline SDD.
+# Solo inyecta contexto; nunca bloquea.
+. "$(dirname "$0")/common.sh"
+# Se lee antes de conciliar: el payload trae el cwd, que es lo que ancla la raíz
+# del proyecto cuando la sesión se abrió fuera del repositorio.
+read_input
+# Última oportunidad de conciliar: con el turno terminado ningún evento de Bash queda
+# en camino, así que toda marca que sigue ahí no recibió resultado.
+flush_pending_test all
+prompt="$(printf '%s' "$INPUT" | jq -r '.prompt // ""' 2>/dev/null)"
+[ -z "$prompt" ] && exit 0
+case "$prompt" in /*) exit 0 ;; esac
+lc="$(printf '%s' "$prompt" | tr '[:upper:]' '[:lower:]')"
+if printf '%s' "$lc" | grep -Eq '\b(implementa|implementar|agrega|agregar|añade|añadir|crea|crear|construye|desarrolla|arregla|arreglar|corrige|corregir|refactoriza|migra|migrar|elimina la (columna|tabla)|feature|funcionalidad|endpoint|bug|fix|migraci[oó]n|integra(r|ci[oó]n)|webhook|sdd|tdd|strict[- ]tdd|pipeline)\b'; then
+  cat << 'CTX'
+[sdd-tdd-core] Este pedido parece un cambio de código. Antes de tocar archivos: clasifica el nivel (completo / bugfix / trivial) según la skill `sdd-pipeline`, dilo en una línea y, salvo nivel trivial, ejecuta el pipeline de ORCHESTRATOR.md con artefactos en <raíz>/<NNNN>-<slug>/ (raíz configurada, default docs/sdd/) y parada en el GATE 1 antes de escribir código.
+CTX
+fi
+exit 0

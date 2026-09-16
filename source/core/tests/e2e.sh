@@ -362,8 +362,14 @@ sec "PostToolUseFailure · la llamada fallida llega con su salida"
 # PostToolUseFailure, sin tool_response: el código y la salida (stdout y stderr
 # mezclados) vienen en .error como "Exit code <n>\n<salida>", recortada a unos
 # 10 000 caracteres desde el principio. Forma capturada del harness real (2.1.272).
-t "hooks.json registra PostToolUseFailure/Bash" \
-  "$(jq -r '.hooks.PostToolUseFailure[]? | select(.matcher=="Bash") | .hooks[].command' "$HOOKS/hooks.json" | grep -c 'post-bash.sh')" 1
+# El registro de hooks es generado: la fuente de verdad es el manifiesto, y
+# hooks.json solo existe en el arbol ya compilado del target Claude.
+MANIFEST="$(cd "$HOOKS/.." && pwd)/manifest.json"
+[ -f "$MANIFEST" ] || MANIFEST="$(cd "$HOOKS/../../../source/core" 2>/dev/null && pwd)/manifest.json"
+t "el manifiesto declara PostToolUseFailure/Bash" \
+  "$(jq -r '[.hooks[] | select(.event=="PostToolUseFailure" and .matcher=="Bash") | .script] | length' "$MANIFEST" 2>/dev/null || echo 0)" 1
+t "y solo para el target claude" \
+  "$(jq -r '[.hooks[] | select(.event=="PostToolUseFailure") | .targets // []] | flatten | join(",")' "$MANIFEST" 2>/dev/null || echo "")" claude
 fail_ev(){ hook post-bash.sh "$(jq -nc --arg c "$1" --arg o "$2" --arg id "$3" \
   '{hook_event_name:"PostToolUseFailure",tool_name:"Bash",tool_input:{command:$c},tool_use_id:$id,error:$o,is_interrupt:false}')" >/dev/null; }
 last(){ tail -n 1 "$F/tdd-evidence.log"; }
@@ -550,6 +556,39 @@ t ".tdd-pending ignorado"                  "$(printf '%s' "$TRK" | grep -c 'tdd-
 t ".hook-errors.log ignorado"              "$(printf '%s' "$TRK" | grep -c 'hook-errors' || true)"   0
 t "spec de capacidad versionado"           "$(printf '%s' "$TRK" | grep -c 'specs/pedidos' || true)"  1
 t "gates.md archivado versionado"          "$(printf '%s' "$TRK" | grep -c '_archive/.*gates' || true)" 1
+
+# ------------------------------------------------------ payload con forma de Codex
+# Codex CLI usa el mismo esquema de hooks que Claude Code: mismo JSON por stdin,
+# misma forma de decisión. La diferencia real es que no exporta CLAUDE_PROJECT_DIR
+# y no declara PostToolUseFailure. Estas aserciones corren los hooks sin ninguna
+# variable de entorno de Claude, anclados solo en el payload.
+sec "Codex · mismos hooks sin variables de Claude"
+X="$(mktemp -d "${TMPDIR:-/tmp}/sdd-codex.XXXXXX")"
+mkdir -p "$X/src" "$X/.agentic" "$X/docs/sdd/0001-alta"
+git -C "$X" init -q
+printf 'SDD_PROD_MARKERS=prod-cluster\nSDD_BASE_BRANCH=develop\n' > "$X/.agentic/sdd-hooks.env"
+printf '0001-alta' > "$X/docs/sdd/.current"
+printf 'full' > "$X/docs/sdd/0001-alta/.level"
+
+# env -i deja el entorno sin CLAUDE_*; solo viaja lo que el payload trae.
+cx(){ printf '%s' "$2" | env -i PATH="$PATH" HOME="$HOME" bash "$HOOKS/$1" 2>/dev/null; }
+cxdec(){ local o; o="$(cx "$1" "$2")"
+  if [ -z "$o" ]; then echo allow
+  else printf '%s' "$o" | jq -r '.hookSpecificOutput.permissionDecision // .decision // "allow"'; fi; }
+cxbash(){ jq -nc --arg c "$1" --arg d "$X" '{tool_name:"Bash",cwd:$d,tool_input:{command:$c}}'; }
+
+t "guardrail de producción con cwd del payload" "$(cxdec pre-bash.sh "$(cxbash 'psql prod-cluster -c "drop table orders"')")" ask
+t "comando inocuo pasa"                         "$(cxdec pre-bash.sh "$(cxbash 'pnpm vitest run')")"                          allow
+t "secreto denegado por ancla de archivo"       "$(cxdec pre-file.sh "$(jq -nc --arg p "$X/.env" --arg d "$X" '{tool_name:"Read",cwd:$d,tool_input:{file_path:$p}}')")" deny
+t "gatekeeper sin insumos deniega"              "$(cxdec pre-task.sh "$(jq -nc --arg d "$X" '{tool_name:"Task",cwd:$d,tool_input:{subagent_type:"implementer"}}')")" deny
+
+# La evidencia TDD, que en Claude llega por PostToolUseFailure cuando el runner
+# falla, en Codex tiene que entrar igual por PostToolUse.
+printf '%s' "$(jq -nc --arg d "$X" '{tool_name:"Bash",cwd:$d,hook_event_name:"PostToolUse",tool_input:{command:"pnpm vitest run src/x.spec.ts"},tool_response:{stdout:"1 failed",stderr:"",interrupted:false}}')" \
+  | env -i PATH="$PATH" HOME="$HOME" bash "$HOOKS/post-bash.sh" >/dev/null 2>&1
+t "evidencia TDD escrita por PostToolUse"       "$(yn "$X/docs/sdd/0001-alta/tdd-evidence.log")" si
+t "el rojo del runner quedó registrado"         "$(grep -c 'exit=1' "$X/docs/sdd/0001-alta/tdd-evidence.log" 2>/dev/null || echo 0)" 1
+rm -rf "$X"
 
 printf "\n${W}%d pasaron · %d fallaron${N}\n" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -21,7 +21,11 @@ function loadPlugins(target) {
     const src = join(ROOT, 'source', dir);
     const manifest = JSON.parse(readFileSync(join(src, 'manifest.json'), 'utf8'));
     if (manifest.targets && !manifest.targets.includes(target)) return null;
-    return { dir, src, manifest, files: walk(src).filter((f) => f !== 'manifest.json') };
+    const fileTargets = manifest.fileTargets ?? {};
+    const files = walk(src).filter(
+      (f) => f !== 'manifest.json' && (!fileTargets[f] || fileTargets[f].includes(target)),
+    );
+    return { dir, src, manifest, files };
   }).filter(Boolean);
 }
 
