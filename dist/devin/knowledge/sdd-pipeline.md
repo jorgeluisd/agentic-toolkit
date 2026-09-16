@@ -1,11 +1,12 @@
----
-name: sdd-pipeline
-description: "Cómo se ejecuta cualquier cambio de código: el pipeline SDD+TDD de sdd-tdd-core con agentes, gates y artefactos, por nivel (completo, bugfix, trivial). Usar cuando el usuario pide implementar, agregar, crear, cambiar, arreglar o migrar algo en el código, aunque no invoque ningún comando."
+# sdd-pipeline
+
+**Cuándo aplica (trigger de la entrada de Knowledge):** Cómo se ejecuta cualquier cambio de código: el pipeline SDD+TDD de sdd-tdd-core con agentes, gates y artefactos, por nivel (completo, bugfix, trivial). Usar cuando el usuario pide implementar, agregar, crear, cambiar, arreglar o migrar algo en el código, aunque no invoque ningún comando.
+
 ---
 
 # El pipeline es la forma de trabajar, no un comando opcional
 
-Cuando el usuario pide un cambio de código en lenguaje natural ("agrega un endpoint", "arregla el bug de X", "implementa la feature Y", "migra la tabla Z"), **no se implementa directo**. Se hace exactamente lo que haría `/prompts:sdd <objetivo>`: leer `ORCHESTRATOR.md` del plugin, clasificar el nivel y correr las fases en orden con artefactos en `docs/sdd/<NNNN>-<slug>/`.
+Cuando el usuario pide un cambio de código en lenguaje natural ("agrega un endpoint", "arregla el bug de X", "implementa la feature Y", "migra la tabla Z"), **no se implementa directo**. Se hace exactamente lo que haría `playbook sdd <objetivo>`: leer `ORCHESTRATOR-solo.md` del plugin, clasificar el nivel y correr las fases en orden con artefactos en `docs/sdd/<NNNN>-<slug>/`.
 
 Si el usuario escribe "con sdd", "usa sdd+tdd", "con tdd" o "por el pipeline", no hay nada que interpretar: es una orden explícita de ejecutar el pipeline en nivel completo (o bugfix si además lo dice).
 
@@ -13,7 +14,7 @@ Si el usuario escribe "con sdd", "usa sdd+tdd", "con tdd" o "por el pipeline", n
 
 | Nivel | Señales en el pedido | Recorrido |
 |---|---|---|
-| **Completo** | feature nueva, endpoint nuevo, cambio de esquema o migración, cualquier cosa que toque auth, pagos, datos personales, integraciones, contratos públicos | `explorer` → `proposer` → `spec-writer` → `designer` → `task-planner` → **GATE 1** (`acepto`) → `implementer` por tarea → `verifier` ∥ `code-reviewer` ∥ `security-reviewer` → `/prompts:pr-draft` → **GATE 2** → `archiver` |
+| **Completo** | feature nueva, endpoint nuevo, cambio de esquema o migración, cualquier cosa que toque auth, pagos, datos personales, integraciones, contratos públicos | `explorer` → `proposer` → `spec-writer` → `designer` → `task-planner` → **GATE 1** (`acepto`) → `implementer` por tarea → `verifier` ∥ `code-reviewer` ∥ `security-reviewer` → `playbook pr-draft` → **GATE 2** → `archiver` |
 | **Bugfix** | defecto acotado y reproducible, sin cambio de contrato ni de esquema | `explorer` → `implementer` (TDD ON: el test que reproduce el bug es el RED) → `verifier` ∥ `code-reviewer` → **GATE 2** |
 | **Trivial** | typo, copy, comentario, bump de patch sin cambio de API, cambio de una línea sin lógica | Sin pipeline; commit bajo `delivery-workflow` |
 
@@ -28,7 +29,7 @@ Antes de lanzar el primer agente, una línea: "Esto es nivel **<completo|bugfix|
 - Cada agente recibe rutas de artefactos, nunca el historial del chat.
 - Ningún archivo de código antes del `acepto` del GATE 1 (nivel completo).
 - Un FAIL del `verifier` o un hallazgo alto del `code-reviewer` nunca llega al GATE 2.
-- Los commits en la rama de feature son autónomos (uno por tarea en verde); push, PR y merge los autoriza el humano. El PR se redacta con `/prompts:pr-draft`.
+- Los commits en la rama de feature son autónomos (uno por tarea en verde); push, PR y merge los autoriza el humano. El PR se redacta con `playbook pr-draft`.
 - El `AGENTS.md` del proyecto y su skill local de invariantes priman sobre cualquier default del plugin.
 
 ## 4. Cómo se verifica que se aplicó

@@ -13,7 +13,8 @@
       "CMD_PREFIX": "/sdd-tdd-core:",
       "CONFIG_FILE": ".agentic/sdd-hooks.env",
       "LOCAL_STORE": ".agentic/sdd",
-      "ATTRIBUTION_OFF": "el repo fija `\"includeCoAuthoredBy\": false` en `.claude/settings.json`"
+      "ATTRIBUTION_OFF": "el repo fija `\"includeCoAuthoredBy\": false` en `.claude/settings.json`",
+      "ORCHESTRATOR": "ORCHESTRATOR.md"
     }
   },
   "codex": {
@@ -30,7 +31,8 @@
       "CMD_PREFIX": "/prompts:",
       "CONFIG_FILE": ".agentic/sdd-hooks.env",
       "LOCAL_STORE": ".agentic/sdd",
-      "ATTRIBUTION_OFF": "Codex no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio"
+      "ATTRIBUTION_OFF": "Codex no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio",
+      "ORCHESTRATOR": "ORCHESTRATOR.md"
     }
   },
   "opencode": {
@@ -47,7 +49,8 @@
       "CMD_PREFIX": "/",
       "CONFIG_FILE": ".agentic/sdd-hooks.env",
       "LOCAL_STORE": ".agentic/sdd",
-      "ATTRIBUTION_OFF": "OpenCode no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio"
+      "ATTRIBUTION_OFF": "OpenCode no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio",
+      "ORCHESTRATOR": "ORCHESTRATOR.md"
     },
     "models": {
       "opus": "anthropic/claude-opus-5",
@@ -69,7 +72,8 @@
       "CMD_PREFIX": "playbook ",
       "CONFIG_FILE": ".agentic/sdd-hooks.env",
       "LOCAL_STORE": ".agentic/sdd",
-      "ATTRIBUTION_OFF": "Devin no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio"
+      "ATTRIBUTION_OFF": "Devin no agrega trailers por defecto; el grep post-commit de §3 es igualmente obligatorio",
+      "ORCHESTRATOR": "ORCHESTRATOR-solo.md"
     }
   }
 }

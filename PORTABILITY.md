@@ -36,6 +36,13 @@ Los prompts son **solo de usuario** (`$CODEX_HOME/prompts/`, no se comparten por
 ### OpenCode
 Lee `.claude/skills/` y `.agents/skills/` además de los suyos, así que las skills funcionan incluso sin compilar nada. Los guardrails necesitan el plugin JS: sin él, el árbol sigue siendo útil pero nada bloquea.
 
+Dos degradaciones concretas del plugin:
+
+1. **No hay estado de confirmación.** La API de plugins permite dejar pasar o lanzar un error; no hay un "preguntá al humano". Lo que en Claude Code sería `ask` — un deploy, un push a la rama base — acá permite y deja el aviso en el log.
+2. **`permission.edit` no distingue por ruta.** Toda fase que escriba su artefacto necesita `edit: allow`, así que el permiso no puede impedir que el `designer` escriba código de producción. Eso lo sostiene el prompt de la fase, no la herramienta.
+
+Los modelos por fase se emiten con ids de Anthropic, tomados del mapa `models` de `adapters/targets.json`. Con otro proveedor, se cambian en `.opencode/agents/*.md` o se borra la línea para usar el default.
+
 ### Devin
 No tiene hooks ni subagentes. Dos consecuencias, y ninguna se disimula:
 
@@ -50,4 +57,4 @@ Si necesitás que esas reglas se hagan cumplir de verdad en Devin, el camino es 
 2. `adapters/<nombre>.mjs` que exporta `buildTarget({ plugins, out, rootOut, vars })`.
 3. Columna en la matriz de arriba.
 
-Los placeholders que todo target tiene que resolver: `AGENT_NAME`, `CONTEXT_DOC`, `AGENT_DIR`, `SKILLS_DIR`, `SETTINGS_FILE`, `PLUGIN_ROOT`, `CMD_PREFIX`, `CONFIG_FILE`, `LOCAL_STORE`, `ATTRIBUTION_OFF`. Uno sin valor rompe el build a propósito: es lo que impide que un token de un producto se cuele en el contenido.
+Los placeholders que todo target tiene que resolver: `AGENT_NAME`, `CONTEXT_DOC`, `AGENT_DIR`, `SKILLS_DIR`, `SETTINGS_FILE`, `PLUGIN_ROOT`, `CMD_PREFIX`, `CONFIG_FILE`, `LOCAL_STORE`, `ATTRIBUTION_OFF`, `ORCHESTRATOR`. Uno sin valor rompe el build a propósito: es lo que impide que un token de un producto se cuele en el contenido.
