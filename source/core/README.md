@@ -197,10 +197,10 @@ En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las 
 ## Tests
 
 ```bash
-bash plugins/sdd-tdd-core/tests/e2e.sh
+bash source/core/tests/e2e.sh
 ```
 
-68 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda {{AGENT_NAME}}, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, y el cierre con reconciliación de capacidad y archivado.
+183 aserciones contra un repositorio git descartable que la suite crea y borra sola. Invoca cada hook con el mismo payload JSON que le manda el agente, así que ejercita el camino real y no una simulación: resolución de la raíz de artefactos en sus seis formas, el orden de búsqueda del archivo de configuración, la cadena completa de insumos del gatekeeper, los cuatro veredictos del GATE 1, el recorrido reducido de `bugfix`, los guardrails de secretos, PII, shell y git, la evidencia TDD capturada de una corrida de tests real, el cierre con reconciliación de capacidad y archivado, y una sección que corre los mismos hooks con payload de Codex CLI, sin ninguna variable de entorno de Claude.
 
 Solo necesita `bash`, `git` y `jq`; si además hay `node`, la evidencia sale de una corrida real en vez de un payload equivalente. Sale 0 si todo pasa, 1 si algo falla. Corre en CI en cada push y PR, junto a `bash -n` y `shellcheck` sobre los seis hooks.
 
