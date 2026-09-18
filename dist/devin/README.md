@@ -5,8 +5,15 @@ el contenido vive en `source/` del repositorio del toolkit.
 
 ## Instalación
 
-1. Copiá `.agents/` a la raíz de tu repositorio y commiteá. Devin lo lee del repo.
-2. Pegá el contenido de `AGENTS.md` en el `AGENTS.md` de tu repositorio.
+```bash
+bash install.sh /ruta/a/tu/repo
+```
+
+El script copia `.agents/` al repositorio, crea `.agentic/sdd-hooks.env` si no
+existe y crea `AGENTS.md` si el repositorio no tiene uno. Lo demás es manual:
+
+1. Si tu repositorio ya tenía `AGENTS.md`, pegá dentro el contenido de `AGENTS.md`.
+2. Commiteá `.agents/`, `.agentic/` y `AGENTS.md`. Devin los lee del repo.
 3. Subí los 8 playbooks de `playbooks/*.devin.md` a Devin
    (arrastrarlos al iniciar una sesión, o crearlos en la web).
 4. Opcional: cargá las 14 entradas de `knowledge/` en el Knowledge de
