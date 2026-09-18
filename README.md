@@ -84,14 +84,26 @@ cd agentic-toolkit
 
 bash dist/codex/install.sh    /ruta/a/tu/repo   # Codex CLI
 bash dist/opencode/install.sh /ruta/a/tu/repo   # OpenCode
+bash dist/devin/install.sh    /ruta/a/tu/repo   # Devin
 ```
 
 En los tres casos queda un paso manual: pegar el contenido del `AGENTS.md` generado
-(`dist/<agente>/AGENTS.md`) en el `AGENTS.md` de tu repositorio.
+(`dist/<agente>/AGENTS.md`) en el `AGENTS.md` de tu repositorio. El instalador de
+Devin lo crea si el repositorio no tiene uno.
 
-Devin no tiene instalador porque no instala nada local: copiás `dist/devin/.agents/`
-a tu repositorio, pegás el `AGENTS.md` y subís los playbooks de
-`dist/devin/playbooks/`. El detalle está en `dist/devin/README.md`.
+#### Devin
+
+Devin no tiene plugins: lee `.agents/` y `AGENTS.md` del repositorio, y los
+playbooks y el Knowledge se cargan desde su web. Después del instalador:
+
+1. Commiteá `.agents/`, `.agentic/` y `AGENTS.md`.
+2. Subí los 8 playbooks de `dist/devin/playbooks/*.devin.md` a Devin (arrastrarlos
+   al iniciar una sesión, o crearlos en la web). Son los comandos del toolkit.
+3. Opcional: cargá las 14 entradas de `dist/devin/knowledge/` en el Knowledge de
+   Devin. El *trigger* de cada una es la línea "Cuándo aplica".
+
+Qué se degrada sin hooks ni subagentes está en `dist/devin/README.md` y en
+[`PORTABILITY.md`](PORTABILITY.md#devin).
 
 ---
 

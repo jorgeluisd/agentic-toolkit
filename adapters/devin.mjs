@@ -43,6 +43,7 @@ export function buildTarget({ plugins, out, vars }) {
   }
 
   out.write(vars.CONTEXT_DOC, agentsMd(commands, vars));
+  out.write('install.sh', installSh(commands, skills), { exec: true });
   out.write('README.md', readme(commands, skills));
 }
 
@@ -123,6 +124,44 @@ el \`verifier\` lo contrasta contra el apply-progress. Formato en
 `;
 }
 
+// Devin no instala nada local: el script deja en el repo lo que Devin lee de ahí y
+// lista lo que solo se carga desde la web.
+function installSh(commands, skills) {
+  return `#!/usr/bin/env bash
+# Instala el toolkit SDD+TDD para Devin en el repositorio actual.
+#   bash install.sh [ruta-al-repo]
+# Playbooks y Knowledge no viven en el repo: se cargan a mano en la web de Devin.
+set -eu
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "\${1:-$PWD}" && pwd)"
+
+[ -d "$REPO/.git" ] || { echo "no parece un repositorio git: $REPO"; exit 1; }
+
+mkdir -p "$REPO/.agents"
+cp -R "$HERE/.agents/." "$REPO/.agents/"
+
+if [ ! -f "$REPO/.agentic/sdd-hooks.env" ]; then
+  mkdir -p "$REPO/.agentic"
+  cp "$HERE/${PLUGIN_DIR}/templates/sdd-hooks.env" "$REPO/.agentic/sdd-hooks.env"
+  echo "creado  .agentic/sdd-hooks.env — editalo antes del primer cambio"
+fi
+
+echo "ok      .agents/ en $REPO"
+if [ ! -f "$REPO/AGENTS.md" ]; then
+  cp "$HERE/AGENTS.md" "$REPO/AGENTS.md"
+  echo "creado  AGENTS.md — sumale lo propio del proyecto (stack, comandos, invariantes)"
+elif grep -q 'Bloque generado por agentic-toolkit' "$REPO/AGENTS.md"; then
+  echo "ok      AGENTS.md ya tiene el bloque del toolkit"
+else
+  echo "falta   pegar el contenido de $HERE/AGENTS.md en el AGENTS.md del repo"
+fi
+echo "falta   commitear .agents/, .agentic/ y AGENTS.md: Devin los lee del repo"
+echo "falta   subir los ${commands.length} playbooks de $HERE/playbooks a Devin"
+echo "opcional cargar las ${skills.length} entradas de $HERE/knowledge en el Knowledge de Devin"
+`;
+}
+
 function readme(commands, skills) {
   return `# agentic-toolkit para Devin
 
@@ -131,8 +170,15 @@ el contenido vive en \`source/\` del repositorio del toolkit.
 
 ## Instalación
 
-1. Copiá \`.agents/\` a la raíz de tu repositorio y commiteá. Devin lo lee del repo.
-2. Pegá el contenido de \`AGENTS.md\` en el \`AGENTS.md\` de tu repositorio.
+\`\`\`bash
+bash install.sh /ruta/a/tu/repo
+\`\`\`
+
+El script copia \`.agents/\` al repositorio, crea \`.agentic/sdd-hooks.env\` si no
+existe y crea \`AGENTS.md\` si el repositorio no tiene uno. Lo demás es manual:
+
+1. Si tu repositorio ya tenía \`AGENTS.md\`, pegá dentro el contenido de \`AGENTS.md\`.
+2. Commiteá \`.agents/\`, \`.agentic/\` y \`AGENTS.md\`. Devin los lee del repo.
 3. Subí los ${commands.length} playbooks de \`playbooks/*.devin.md\` a Devin
    (arrastrarlos al iniciar una sesión, o crearlos en la web).
 4. Opcional: cargá las ${skills.length} entradas de \`knowledge/\` en el Knowledge de
