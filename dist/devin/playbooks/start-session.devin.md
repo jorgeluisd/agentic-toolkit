@@ -13,7 +13,7 @@ Lee, en este orden y solo lo necesario:
 1. `AGENTS.md` del proyecto (contexto, stack, invariantes, comandos, rutas de plan/backlog/ADRs).
 2. Skill local de invariantes del proyecto, si existe.
 3. `<raíz>/specs/` — los specs de capacidad son el registro vigente de qué hace el sistema. Leé los de la capacidad que vas a tocar; no los de `_archive/`, que es historia.
-4. El último `08-close.md` (próximo paso sugerido) y `<raíz>/.current` si hay una feature abierta.
+4. El último `08-close.md` (próximo paso sugerido) y la feature activa de este worktree si hay una abierta (`$(git rev-parse --absolute-git-dir)/sdd-current`; en el checkout principal, si no existe, `<raíz>/.current`).
 5. ADRs afines al área a tocar (busca por tema; no leas todos).
 6. Plan/backlog: qué está hecho, qué está en curso, orden de cierre.
 7. Memoria persistente conectada, si existe; si no, omite.

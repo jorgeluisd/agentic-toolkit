@@ -56,7 +56,7 @@ Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una refere
 | `sdd/<change>/gates` | `gates.md` | el humano, en cada gate |
 | `sdd/<change>/close` | `08-close.md` | `archiver` |
 | `sdd/<change>/evidence` | `tdd-evidence.log` | hook `post-bash` |
-| `sdd/<change>/state` | `.current` | el orquestador al abrir; lo borra el `archiver` |
+| `sdd/<change>/state` | `<git dir>/sdd-current` (fuera de git, `<raíz>/.current`) | el orquestador al abrir; lo borra el `archiver` |
 | `sdd/<change>/level` | `.level` | el orquestador al abrir (`full` \| `bugfix`); lo lee el gatekeeper |
 
 ### Stores
@@ -80,8 +80,10 @@ Los agentes no se pasan rutas: se pasan **referencias de artefacto**. Una refere
   <NNNN>-<slug>/              change en vuelo (los 9 artefactos + gates.md)
   specs/<capacidad>/spec.md   registro durable, uno por capacidad, se actualiza in place
   _archive/<fecha>-<slug>/    changes cerrados, fuera del camino
-  .current                    puntero a la carpeta activa (estado de sesión)
+  .current                    puntero de compatibilidad (solo checkout principal o fuera de git)
 ```
+
+El puntero a la carpeta activa es **por worktree** y vive fuera del árbol: `$(git rev-parse --absolute-git-dir)/sdd-current`, un archivo con el nombre `<NNNN>-<slug>`. Cada worktree tiene su propio git dir, así que dos sesiones en paralelo —una por worktree— tienen cada una su feature aunque compartan la raíz de artefactos. `<raíz>/.current` se sigue leyendo como compatibilidad, solo en el checkout principal y solo si no hay puntero; fuera de un repositorio git es el único puntero.
 
 Un change vive en `<NNNN>-<slug>/` (número correlativo; el slug es el mismo de la rama) mientras está en vuelo. Al cerrar, el `archiver` hace dos cosas: **reconcilia** su `02-spec.md` contra el spec de la capacidad que toca y **archiva** la carpeta a `_archive/<YYYY-MM-DD>-<slug>/`.
 
@@ -94,7 +96,7 @@ Reglas:
 - Cada artefacto empieza con `RESUMEN` (≤ 10 líneas) para el agente siguiente y termina con `DUDAS ABIERTAS`.
 - Ningún artefacto supera 150 líneas salvo `05-apply-progress.md`, que en cambio **rota**: pasadas `SDD_PROGRESS_KEEP_TASKS` tareas (default 10), el detalle viejo se mueve a `05-apply-progress-T<n>-T<m>.md` y el archivo vivo conserva un `RESUMEN ACUMULADO` más las últimas tareas. El `implementer` lo relee en cada tarea; sin rotar el costo crece con el cuadrado de las tareas, y el gatekeeper lo deniega.
 - Ningún artefacto contiene datos personales reales, secretos ni identificadores de producción. Los ejemplos son sintéticos. (Hook `guard-pii-artifacts` lo verifica.)
-- **Registro durable vs. estado de sesión.** Los artefactos son registro durable y se versionan: justifican el código y los releen `start-session` y `audit-status` meses después. Dos archivos son estado de sesión y **no se versionan**: `docs/sdd/.current` (puntero a la carpeta activa, lo crea el `task-planner` y lo borra el `archiver`; commitearlo produce conflicto entre features en paralelo sobre un dato que después no significa nada) y `docs/sdd/**/tdd-evidence.log` (append-only, lo genera un hook, nadie lo lee después del GATE 2 y conflictúa ante cualquier escritura concurrente). Ambos tienen que existir en el working tree durante el pipeline — el `verifier` contrasta contra el log — pero no en el historial. Con store `repo`, el repo adoptante ignora esos dos archivos en su `.gitignore`; con `local` o `engram` ignora la raíz entera y la distinción deja de importar.
+- **Registro durable vs. estado de sesión.** Los artefactos son registro durable y se versionan: justifican el código y los releen `start-session` y `audit-status` meses después. Dos archivos son estado de sesión y **no se versionan**: el puntero a la carpeta activa (`<git dir>/sdd-current`, fuera del árbol por construcción; el `docs/sdd/.current` de compatibilidad sí hay que ignorarlo: commitearlo produce conflicto entre features en paralelo sobre un dato que después no significa nada) y `docs/sdd/**/tdd-evidence.log` (append-only, lo genera un hook, nadie lo lee después del GATE 2 y conflictúa ante cualquier escritura concurrente). Ambos tienen que existir en el working tree durante el pipeline — el `verifier` contrasta contra el log — pero no en el historial. Con store `repo`, el repo adoptante ignora esos dos archivos en su `.gitignore`; con `local` o `engram` ignora la raíz entera y la distinción deja de importar.
 - El orquestador no arranca un agente si falta el artefacto previo.
 - Cada agente escribe su propio artefacto a disco con `Write` (todos lo tienen en su frontmatter). Si un agente devuelve el contenido en su mensaje final en vez de escribirlo, el orquestador no lo persiste por él: lo relanza indicándole la ruta. El contenido de los artefactos no pasa por el contexto del orquestador.
 - `07-review.md` y `07-security.md` son independientes entre sí y del `06-verify.md`; los tres entran juntos al GATE 2.
@@ -119,7 +121,7 @@ Cada agente declara qué artefactos necesita. La tabla es el contrato: el orques
 
 En nivel `bugfix` el conjunto se reduce: `implementer` lee `explore`; `verifier` lee `apply-progress` + `evidence`; `code-reviewer` lee `apply-progress`. Las fases de diseño no corren.
 
-**El gatekeeper lo hace cumplir.** El hook `pre-task` (`PreToolUse` / `Task`) intercepta el lanzamiento de cada agente del pipeline, resuelve la feature activa y su nivel, y **deniega** si falta un insumo requerido o si el `implementer` va a correr sin GATE 1 aprobado. Fuera del pipeline no interviene: sin `.current` activo, o con un subagente ajeno, no hace nada.
+**El gatekeeper lo hace cumplir.** El hook `pre-task` (`PreToolUse` / `Task`) intercepta el lanzamiento de cada agente del pipeline, resuelve la feature activa y su nivel, y **deniega** si falta un insumo requerido o si el `implementer` va a correr sin GATE 1 aprobado. Fuera del pipeline no interviene: sin feature activa en el worktree, o con un subagente ajeno, no hace nada.
 
 El nivel se declara en `<raíz>/<feature>/.level` (`full` | `bugfix`); lo escribe el orquestador al crear la carpeta. Ausente equivale a `full`, que es el conjunto más estricto.
 

@@ -122,10 +122,12 @@ Comandos que parecen dirigidos a producción · push directo a la rama base · m
 Cada corrida de tests se registra en `<raíz>/<feature>/tdd-evidence.log`:
 
 ```
-2026-09-04T01:12:44Z | exit=0 | pnpm test orders | Tests 12 passed (12) Test Files 3 passed
-2026-09-04T01:14:02Z | exit=1 | pnpm vitest run order.spec.ts | Tests 1 failed (1) Test Files 1 failed (1)
-2026-09-04T01:16:30Z | exit=0 | pnpm vitest run order.spec.ts && cat > notas.md <<'EOF' … | Tests 1 passed (1) | WARN=call-failed-outside-tests
+2026-09-04T01:12:44Z | exit=0 | pnpm test orders | Tests 12 passed (12) Test Files 3 passed | wt=/src/app branch=feat/alta-pedido
+2026-09-04T01:14:02Z | exit=1 | pnpm vitest run order.spec.ts | Tests 1 failed (1) Test Files 1 failed (1) | wt=/src/app branch=feat/alta-pedido
+2026-09-04T01:16:30Z | exit=0 | pnpm vitest run order.spec.ts && cat > notas.md <<'EOF' … | Tests 1 passed (1) | wt=/src/app branch=feat/alta-pedido | WARN=call-failed-outside-tests
 ```
+
+`wt=` es el toplevel del worktree donde corrió el comando y `branch=` su rama (`detached@<sha>` sin rama): sirve para auditar de dónde salió cada línea. La feature es la del worktree donde corre el comando —ver [Sesiones en paralelo y worktrees](#sesiones-en-paralelo-y-worktrees)—.
 
 El hook está registrado en `PostToolUse` y en `PostToolUseFailure`: el harness entrega el primero cuando la llamada Bash termina en 0 y el segundo cuando falla, con el exit code y la salida (stdout y stderr mezclados, recortada a unos 10 000 caracteres desde el principio). Así el RED del ciclo —la segunda línea— queda con su código y su resumen reales.
 
@@ -137,7 +139,7 @@ Si no llega ningún evento, queda la marca que `PreToolUse` deja antes de lanzar
 
 Con secretos y emails redactados por patrón, y estas marcas de sospecha: `WARN=piped-output` si la salida se filtró por un pipe, `WARN=output-truncated` si el harness recortó la salida de una llamada fallida antes del resumen del runner, `WARN=interrupted` si la corrida se cortó, `WARN=no-tests-ran` si el runner salió en verde sin ejecutar un solo test (filtro `-t` mal escrito, todo skipped, "No test files found"), `WARN=backgrounded` si la llamada pasó a background —el evento llega al pasar, no al terminar, y el resultado real no llega nunca: la línea queda `exit=?` y no es ni RED ni GREEN—, `WARN=compile-error` si el rojo es de compilación y ningún caso llegó a ejecutarse (`strict-tdd` §3), y `WARN=full-suite-mid-cycle` si se corrió la suite completa con un RED abierto — la suite es del cierre de tarea y del `verifier`, no del ciclo interno, y cuesta unas 3× más por corrida. El `verifier` contrasta la tabla del apply-progress contra este log.
 
-Este log, `docs/sdd/.current`, `<feature>/.tdd-pending`, `docs/sdd/.tdd-pending-dirs` (el índice de las marcas que quedaron en otro repositorio, que `UserPromptSubmit` consume y borra al cerrar el turno) y `docs/sdd/.hook-errors.log` (donde los hooks anotan un payload que no pudieron leer, en vez de salir en silencio) son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
+Este log, `docs/sdd/.current` (el puntero de compatibilidad), `<feature>/.tdd-pending`, `docs/sdd/.tdd-pending-dirs` (el índice de las marcas que quedaron en otro repositorio, que `UserPromptSubmit` consume y borra al cerrar el turno) y `docs/sdd/.hook-errors.log` (donde los hooks anotan un payload que no pudieron leer, en vez de salir en silencio) son **estado de sesión: no se versionan** (`/adopt` los agrega al `.gitignore` del repo). El resto de los artefactos sí — ver `ORCHESTRATOR.md` §3.
 
 ### Límites conocidos de los detectores
 
@@ -162,6 +164,30 @@ Los guardrails son regex sobre el contenido que el agente va a escribir. Cubren 
 Hoy ampliarlos requiere editar `hooks/common.sh` (`SECRET_RE`, `PHONE_RE`) en una copia del plugin: no hay clave de configuración para patrones propios. Si tu proyecto maneja documentos nacionales o teléfonos locales, es el primer lugar donde mirar.
 
 Y hay una categoría que los detectores **no intentan** cubrir, por diseño: `00-explore.md` y `03-design.md` describen tu esquema real, tus endpoints y tus reglas de negocio. Eso no es PII, es propiedad intelectual del producto, y es exactamente para lo que esos artefactos existen. En un repo privado está bien; tenelo presente antes de hacer público un repo que los versiona, porque git es append-only y borrarlos después no los saca del historial.
+
+### Sesiones en paralelo y worktrees
+
+La feature activa es **por worktree**. El puntero vive en el git dir propio de cada worktree, fuera del árbol y sin compartirse:
+
+```bash
+git rev-parse --absolute-git-dir          # .git en el principal, .git/worktrees/<nombre> en uno enlazado
+cat "$(git rev-parse --absolute-git-dir)/sdd-current"   # 0022-alta-pedido
+```
+
+Lo escribe el orquestador al abrir la feature (`/sdd` o el `task-planner`) y lo borra el `archiver`. Antes era un único `<raíz>/.current`: con `docs/sdd/` compartido entre worktrees por symlink, todas las sesiones veían el mismo y las corridas de tests de una sesión de chores quedaban como evidencia de la feature que implementaba otra.
+
+Cómo resuelven los hooks la feature de cada corrida:
+
+1. **El worktree es el del directorio donde corre el comando**, no el de la sesión: el `cd <dir>` que abre el comando (o `--dir`/`-C`/`--prefix`), y si no hay, el `cwd` de la llamada. Se resuelve con `git -C <dir> rev-parse --show-toplevel`, así que `cd ../otro-worktree && pnpm test` anota en la feature de ese worktree.
+2. **Se lee `<git dir>/sdd-current` de ese worktree.**
+3. **Si no existe**: en el checkout principal se cae a `<raíz>/.current` y, si tampoco está, a `<raíz>/_unassigned/` (como siempre). **En un worktree enlazado no se anota nada**: la corrida no es evidencia de ninguna feature. El gatekeeper de fases tampoco interviene. Con `SDD_HOOKS_DEBUG=1` en el entorno, cada corrida descartada deja una línea `debug:` en `<raíz>/.hook-errors.log`.
+
+Para trabajar con varias sesiones a la vez:
+
+- **Una feature por worktree, una sesión por worktree.** Abrí cada sesión con el cwd en su worktree; la feature se activa desde esa sesión y el puntero queda en ese worktree.
+- **Los worktrees de chores u ops no llevan puntero.** Sus corridas de tests no se anotan en ninguna parte, que es lo que corresponde.
+- **No escribas `<raíz>/.current` a mano** si hay worktrees en uso: el checkout principal lo sigue leyendo, y cualquier sesión que corra tests ahí anotaría en esa feature. Para activar una feature en un worktree: `printf '%s\n' 0022-alta-pedido > "$(git rev-parse --absolute-git-dir)/sdd-current"`.
+- **Para auditar** una línea inesperada, `wt=` y `branch=` dicen de qué worktree y rama salió.
 
 ---
 

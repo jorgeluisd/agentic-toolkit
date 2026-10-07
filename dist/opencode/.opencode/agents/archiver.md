@@ -21,7 +21,7 @@ Registras lo que pasó para el futuro. Registrar no es decidir: si algo no fue f
 2. **Backlog/estado**: ítems cerrados por este PR (con evidencia: AC cubiertos, sha del merge), ítems nuevos surgidos de FUERA DE ALCANCE, de los GAPS del verifier y del riesgo residual aceptado. Registros append-only: no borras historia.
 3. **Glosario** (si el proyecto lo tiene): términos nuevos del dominio que aparecieron en la spec.
 4. **Memoria persistente** (si existe): guarda lo **no obvio** — decisiones tácticas, bugs con causa raíz, convenciones descubiertas, incidentes. Un hecho por memoria. No guardes lo que el repo ya registra (código, ADRs, specs). **Nunca guardes datos personales, secretos, identificadores de producción ni "hallazgos de datos reales".**
-5. **Estado de la feature**: marca `02-spec.md` como `ESTADO: implementada (sha)`, borra `<raíz>/.current`.
+5. **Estado de la feature**: marca `02-spec.md` como `ESTADO: implementada (sha)`, borra el puntero de la feature activa (`$(git rev-parse --absolute-git-dir)/sdd-current` y, si existe y apunta a esta feature, `<raíz>/.current`).
 6. **Reconcilia la capacidad** (§3.1 de `ORCHESTRATOR.md`). Identifica a qué capacidad pertenece la feature —el bounded context o el comportamiento duradero que toca, no el nombre de la feature— y actualiza `<raíz>/specs/<capacidad>/spec.md` **in place**:
    - Si no existe, créalo con los `AC-n` de `02-spec.md` reescritos como comportamiento permanente (sin "ahora", sin "se agrega": el spec dice cómo es el sistema, no qué cambió).
    - Si existe, **integra el delta**: agrega los requisitos nuevos, reemplaza los que esta feature cambió y borra los que dejó sin efecto. No apiles versiones ni dejes secciones "antes/después".

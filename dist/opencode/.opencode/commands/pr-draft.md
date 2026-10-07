@@ -4,7 +4,7 @@ description: Redacta el PR con la única plantilla permitida (Qué cambia · Por
 
 Redacta la descripción del PR para la feature en:
 $ARGUMENTS
-(si está vacío, usa la carpeta indicada en `docs/sdd/.current`).
+(si está vacío, usa la feature activa del worktree: `$(git rev-parse --absolute-git-dir)/sdd-current`, o `docs/sdd/.current` si ese archivo no existe y estás en el checkout principal).
 
 Insumos: `02-spec.md` (RESUMEN y OBJETIVO), `06-verify.md` (tabla de checks y sha), `05-apply-progress.md` (solo para confirmar el alcance). Carga la skill `delivery-workflow`.
 

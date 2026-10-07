@@ -3,7 +3,7 @@
 # falta un artefacto que ese agente declara como insumo. Convierte la regla
 # "no lanzas un agente si falta el artefacto anterior" en un chequeo mecánico.
 #
-# Solo actúa cuando hay una feature activa (<raíz>/.current). Fuera del pipeline
+# Solo actúa cuando hay una feature activa en el worktree (`active_feature`). Fuera del pipeline
 # no molesta: subagentes ajenos y agentes lanzados sin feature activa pasan.
 . "$(dirname "$0")/common.sh"
 read_input
@@ -28,14 +28,13 @@ target="$(_sdd_text_repo "$(jq_get '.tool_input.prompt')
 $(jq_get '.tool_input.description')")"
 if [ -n "$target" ] && [ "$target" != "$PROJECT_DIR" ]; then
   _sdd_configure "$target"
+  SDD_RUN_DIR="$target"; _SDD_WT_DONE=0
 fi
 _sdd_mark_cross
 
-# Feature activa. Sin ella no hay pipeline en curso y no hay nada que exigir: un
-# repositorio sin `.current` no tiene pipeline en curso, y el gate no inventa uno.
-[ -f "$ARTIFACTS_ROOT/.current" ] || exit 0
-feature="$(tr -d '[:space:]' < "$ARTIFACTS_ROOT/.current")"
-[ -n "$feature" ] || exit 0
+# Feature activa del worktree del trabajo pedido (`active_feature`). Sin ella no
+# hay pipeline en curso y no hay nada que exigir: el gate no inventa uno.
+feature="$(active_feature)" || exit 0
 dir="$ARTIFACTS_ROOT/$feature"
 [ -d "$dir" ] || exit 0
 
@@ -116,6 +115,6 @@ if [ -n "$missing" ]; then
   deny "GATEKEEPER: no se puede lanzar '$agent' (nivel $level). Falta:$missing
 
 $where
-Cada agente recibe artefactos, no contexto de chat: sin el insumo previo el resultado sería inventado. Corré la fase que lo produce, o corregí <raíz>/.current si la feature activa no es la que creés."
+Cada agente recibe artefactos, no contexto de chat: sin el insumo previo el resultado sería inventado. Corré la fase que lo produce, o corregí el puntero (<git dir>/sdd-current; en el checkout principal, también <raíz>/.current) si la feature activa no es la que creés."
 fi
 exit 0

@@ -217,19 +217,81 @@ _sdd_mark_cross() {
 # Cada ancla se paga solo si hace falta: el hook corre en cada herramienta que usa
 # el agente, y un Write se resuelve con una sola llamada a jq.
 sdd_reanchor() {
-  local p d cwd
+  local p d cwd f cd_dir
   CROSS_REPO=0
   p="$1"; [ -n "$p" ] || return 0
   cwd="$(_sdd_field "$p" '.cwd')"
-  if d="$(_sdd_climb "$(_sdd_field "$p" '.tool_input.file_path')")" ||
-     d="$(_sdd_climb "$(_sdd_cmd_dir "$(_sdd_field "$p" '.tool_input.command')" "$cwd")")" ||
+  f="$(_sdd_field "$p" '.tool_input.file_path')"
+  cd_dir="$(_sdd_cmd_dir "$(_sdd_field "$p" '.tool_input.command')" "$cwd")"
+  if d="$(_sdd_climb "$f")" ||
+     d="$(_sdd_climb "$cd_dir")" ||
      d="$(_sdd_climb "$(_sdd_cmd_path "$p")")" ||
      d="$(_sdd_climb "$cwd")"
   then
     [ "$d" = "$PROJECT_DIR" ] || _sdd_configure "$d"
   fi
+  # Dónde corre de verdad la llamada: el directorio que el comando declara, si no
+  # el cwd del payload. Es lo que decide el worktree, y con él la feature activa.
+  case "$f" in /*) SDD_RUN_DIR="${f%/*}" ;; *) SDD_RUN_DIR="${cd_dir:-$cwd}" ;; esac
+  _SDD_WT_DONE=0
   _sdd_mark_cross
 }
+
+# Feature activa POR WORKTREE. Los worktrees de un repo suelen compartir la raíz
+# de artefactos (docs/sdd/ por symlink, o una ruta absoluta), y un único
+# <raíz>/.current hacía que dos sesiones en paralelo —una por worktree— anotaran
+# sus corridas en la misma feature. El puntero vive en el git dir propio de cada
+# worktree (`<git dir>/sdd-current`), que no se versiona ni se comparte.
+# <raíz>/.current queda como compatibilidad, y solo para el checkout principal:
+# un worktree enlazado sin puntero no tiene feature activa.
+#
+# sdd_worktree: fija WORKTREE_DIR (toplevel), WORKTREE_GIT_DIR, WORKTREE_MAIN
+# (1 = checkout principal) y WORKTREE_BRANCH a partir de SDD_RUN_DIR. Fuera de un
+# repositorio git quedan vacíos y rige el comportamiento de siempre.
+SDD_RUN_DIR=""; _SDD_WT_DONE=0
+sdd_worktree() {
+  [ "$_SDD_WT_DONE" = 1 ] && return 0
+  _SDD_WT_DONE=1
+  WORKTREE_DIR=""; WORKTREE_GIT_DIR=""; WORKTREE_MAIN=0; WORKTREE_BRANCH=""
+  local d="${SDD_RUN_DIR:-$PROJECT_DIR}" common
+  case "$d" in /*) ;; *) return 0 ;; esac
+  while [ -n "$d" ] && [ ! -d "$d" ]; do d="${d%/*}"; done
+  [ -n "$d" ] || return 0
+  WORKTREE_DIR="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || { WORKTREE_DIR=""; return 0; }
+  [ -n "$WORKTREE_DIR" ] || return 0
+  WORKTREE_GIT_DIR="$(git -C "$d" rev-parse --absolute-git-dir 2>/dev/null)"
+  common="$(git -C "$d" rev-parse --git-common-dir 2>/dev/null)"
+  case "$common" in /*) ;; *) common="$d/$common" ;; esac
+  [ "$(cd "$WORKTREE_GIT_DIR" 2>/dev/null && pwd -P)" = "$(cd "$common" 2>/dev/null && pwd -P)" ] && WORKTREE_MAIN=1
+  WORKTREE_BRANCH="$(git -C "$d" symbolic-ref --short -q HEAD 2>/dev/null)" ||
+    WORKTREE_BRANCH="detached@$(git -C "$d" rev-parse --short HEAD 2>/dev/null)"
+  return 0
+}
+
+# active_feature: la carpeta de la feature activa del worktree donde corre la
+# llamada. Devuelve 1 si ese worktree no tiene ninguna.
+active_feature() {
+  local f=""
+  sdd_worktree
+  if [ -n "$WORKTREE_GIT_DIR" ] && [ -f "$WORKTREE_GIT_DIR/sdd-current" ]; then
+    f="$(tr -d '[:space:]' < "$WORKTREE_GIT_DIR/sdd-current")"
+  elif [ -z "$WORKTREE_DIR" ] || [ "$WORKTREE_MAIN" = 1 ]; then
+    [ -f "$ARTIFACTS_ROOT/.current" ] && f="$(tr -d '[:space:]' < "$ARTIFACTS_ROOT/.current")"
+  fi
+  [ -n "$f" ] || return 1
+  printf '%s' "$f"
+}
+
+# worktree_origin: `wt=<toplevel> branch=<rama>`, el origen de una corrida para la
+# línea de evidencia. Vacío fuera de un repositorio git.
+worktree_origin() {
+  sdd_worktree
+  [ -n "$WORKTREE_DIR" ] && printf 'wt=%s branch=%s' "$WORKTREE_DIR" "$WORKTREE_BRANCH"
+}
+
+# hook_debug <mensaje>: traza opcional, solo con SDD_HOOKS_DEBUG=1. Para lo que no
+# es un error sino una decisión deliberada de no hacer nada.
+hook_debug() { [ "${SDD_HOOKS_DEBUG:-0}" = 1 ] && hook_diag "debug: $1"; return 0; }
 
 # is_test_run <comando>: 0 si alguno de los segmentos del comando ejecuta tests.
 # Quita cadenas entre comillas y descarta segmentos cuyo primer verbo es de
@@ -317,9 +379,16 @@ is_targeted_run() {
 }
 
 # evidence_dir: carpeta activa de artefactos donde se materializa la evidencia.
+# Sin feature activa: el checkout principal (o un directorio fuera de git) va a
+# _unassigned, como siempre; un worktree enlazado no anota nada (devuelve 1) — su
+# corrida no es de ninguna feature, y _unassigned es compartido entre worktrees.
 evidence_dir() {
-  if [ -f "$ARTIFACTS_ROOT/.current" ]; then
-    printf '%s/%s' "$ARTIFACTS_ROOT" "$(tr -d '[:space:]' < "$ARTIFACTS_ROOT/.current")"
+  local f
+  sdd_worktree
+  if f="$(active_feature)"; then
+    printf '%s/%s' "$ARTIFACTS_ROOT" "$f"
+  elif [ -n "$WORKTREE_DIR" ] && [ "$WORKTREE_MAIN" = 0 ]; then
+    return 1
   else
     printf '%s/_unassigned' "$ARTIFACTS_ROOT"
   fi
@@ -345,7 +414,7 @@ hook_diag() {
 #   vieja que el timeout máximo de Bash (10 min), con margen.
 # - user-prompt.sh, todas: con el turno terminado ya no hay evento en camino.
 PENDING_STALE_MIN=15
-pending_dir() { printf '%s/.tdd-pending' "$(evidence_dir)"; }
+pending_dir() { local e; e="$(evidence_dir)" || return 1; printf '%s/.tdd-pending' "$e"; }
 # Índice de carpetas de pendientes fuera del repositorio de la sesión. Con la
 # resolución por comando, `cd <B> && <runner>` deja su marca en B, y user-prompt.sh
 # —que concilia todo al cerrar el turno— resuelve contra el repositorio de la
@@ -355,7 +424,7 @@ _sdd_pending_index() { printf '%s/.tdd-pending-dirs' "${SDD_SESSION_ARTIFACTS_RO
 _pending_id() { local id; id="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-' | cut -c1-100)"; printf '%s' "${id:-sin-id}"; }
 
 mark_pending_test() {
-  local d idx; d="$(pending_dir)"
+  local d idx; d="$(pending_dir)" || return 0
   [ -f "$d" ] && _flush_pending_entry "$d" "$(_pending_log "$d")"
   mkdir -p "$d" 2>/dev/null || return 0
   if [ "${CROSS_REPO:-0}" = 1 ]; then
@@ -363,13 +432,14 @@ mark_pending_test() {
     mkdir -p "${idx%/*}" 2>/dev/null
     grep -qxF "$d" "$idx" 2>/dev/null || printf '%s\n' "$d" >> "$idx" 2>/dev/null
   fi
-  printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    "$(printf '%s' "$1" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)" \
+  printf '%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$(printf '%s' "$1" | tr '\n\t' '  ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)" \
+    "$(worktree_origin)" \
     >| "$d/$(_pending_id "$2")" 2>/dev/null
 }
 
 clear_pending_test() {
-  local d; d="$(pending_dir)"
+  local d; d="$(pending_dir)" || return 0
   [ -d "$d" ] || return 0
   rm -f "$d/$(_pending_id "$1")" 2>/dev/null
   rmdir "$d" 2>/dev/null
@@ -382,14 +452,15 @@ clear_pending_test() {
 _pending_log() { printf '%s/tdd-evidence.log' "${1%/.tdd-pending}"; }
 
 _flush_pending_entry() {
-  local f="$1" log="$2" ts cmd warn
+  local f="$1" log="$2" ts cmd origin warn
   [ -s "$f" ] || { rm -f "$f" 2>/dev/null; return 0; }
-  ts="$(cut -f1 < "$f")"; cmd="$(cut -f2- < "$f")"
+  # Marca: <ts> TAB <comando> TAB <origen>. La de antes de 2.3.0 no trae origen.
+  ts="$(cut -f1 < "$f")"; cmd="$(cut -f2 < "$f")"; origin="$(cut -s -f3 < "$f")"
   rm -f "$f" 2>/dev/null
   warn="resultado-inferido-por-ausencia-de-PostToolUse"
   case "$log" in "${SDD_SESSION_ARTIFACTS_ROOT:-$ARTIFACTS_ROOT}"/*) ;; *) warn="$warn;repo-cruzado" ;; esac
-  printf '%s | exit=!0 | %s | sin salida capturada | WARN=%s\n' \
-    "$ts" "$cmd" "$warn" >> "$log" 2>/dev/null
+  printf '%s | exit=!0 | %s | sin salida capturada%s | WARN=%s\n' \
+    "$ts" "$cmd" "${origin:+ | $origin}" "$warn" >> "$log" 2>/dev/null
 }
 
 # _flush_pending_dir <carpeta> <all|stale>: concilia las marcas de una carpeta.
@@ -413,8 +484,7 @@ _flush_pending_dir() {
 # quedaron anotados en el índice: el turno terminó y no hay evento en camino.
 flush_pending_test() {
   local mode="${1:-stale}" idx d here
-  here="$(pending_dir)"
-  _flush_pending_dir "$here" "$mode"
+  here="$(pending_dir)" && _flush_pending_dir "$here" "$mode"
   [ "$mode" = all ] || return 0
   idx="$(_sdd_pending_index)"
   [ -f "$idx" ] || return 0

@@ -5,7 +5,7 @@
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
   },
-  "version": "2.2.0",
+  "version": "2.3.0",
   "plugins": [
     {
       "name": "sdd-tdd-core",
