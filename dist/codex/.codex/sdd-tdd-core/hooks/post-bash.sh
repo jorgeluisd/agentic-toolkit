@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse y PostToolUseFailure / Bash — evidencia TDD mecánica + verificación post-commit.
 # Registra cada corrida de tests en <raíz de artefactos>/<feature>/tdd-evidence.log:
-#   <ISO-8601> | exit=<n> | <comando> | <resumen>[ | WARN=<marca>;...]
+#   <ISO-8601> | exit=<n> | <comando> | <resumen> | wt=<toplevel> branch=<rama>[ | WARN=<marca>;...]
 # PostToolUse llega cuando la llamada Bash termina en 0 y trae tool_response
 # (stdout/stderr, interrupted, isImage, noOutputExpected: ninguna clave con el exit
 # code, capturado del harness real 2.1.272). PostToolUseFailure llega cuando falla y
@@ -15,7 +15,8 @@
 # corrida termina no llega ningún evento: esa línea se marca WARN=backgrounded.
 # Si no llega ningún evento, `flush_pending_test` concilia la corrida (common.sh).
 # La raíz la resuelve common.sh (SDD_ARTIFACTS_DIR, default docs/sdd); la carpeta
-# activa se lee de <raíz>/.current (la escribe el task-planner).
+# activa es la del worktree donde corre el comando: <git dir>/sdd-current, y en el
+# checkout principal, como compatibilidad, <raíz>/.current (`active_feature`).
 . "$(dirname "$0")/common.sh"
 read_input
 # Un payload que no se puede leer no puede salir en silencio: sin esta traza el
@@ -52,7 +53,14 @@ INFER_RED_RE='[1-9][0-9]*[[:space:]]+failed|FAIL(ED|URES)?[[:space:]:]|error TS[
 TRUNCATED_AT=10000
 
 # 1) Evidencia de tests.
-if is_test_run "$cmd"; then
+# Un worktree enlazado sin feature activa no anota: su corrida no es evidencia de
+# ninguna feature, y escribirla en otra es justo lo que ensucia la de una sesión
+# en paralelo.
+sdd_worktree
+test_run=0; is_test_run "$cmd" && test_run=1
+if [ "$test_run" = 1 ] && ! dir="$(evidence_dir)"; then
+  hook_debug "post-bash: $WORKTREE_DIR ($WORKTREE_BRANCH) no tiene feature activa; no se anotó: $(printf '%s' "$cmd" | tr '\n' ' ' | cut -c1-120)"
+elif [ "$test_run" = 1 ]; then
   harness_code=""; err_len=0; bg=""
   if [ "$failed" = 1 ]; then
     all="$(printf '%s' "$INPUT" | jq -r '(.error // "") | tostring' 2>/dev/null)"
@@ -71,7 +79,9 @@ if is_test_run "$cmd"; then
   # repositorio no es el de la sesión queda dicho en la línea, que si no aparece en
   # un log ajeno sin explicación.
   xrepo=""; [ "${CROSS_REPO:-0}" = 1 ] && xrepo="repo-cruzado;"
-  dir="$(evidence_dir)"
+  # De qué worktree y rama salió la corrida: con varias sesiones en paralelo es lo
+  # único que permite auditar después una línea que no se esperaba.
+  origin="$(worktree_origin)"; origin="${origin:+ | $origin}"
   mkdir -p "$dir" 2>/dev/null
   # Nunca registrar secretos ni datos personales en el log: se limpian por patrón.
   safe_cmd="$(printf '%s' "$cmd" | tr '\n' ' ' | sed -E "s#$SECRET_RE#[REDACTED]#g" | cut -c1-300)"
@@ -79,8 +89,8 @@ if is_test_run "$cmd"; then
     # Este evento llegó al pasar a background, no al terminar: la salida está vacía y el
     # resultado real no llega por ningún evento. Inferirlo anotaba como verde "sin tests"
     # una corrida que terminó en rojo. La corrida se repite en primer plano.
-    printf '%s | exit=? | %s | sin salida: la llamada pasó a background (%s) | WARN=%sbackgrounded\n' \
-      "$ts" "$safe_cmd" "$bg" "$xrepo" >> "$dir/tdd-evidence.log" 2>/dev/null
+    printf '%s | exit=? | %s | sin salida: la llamada pasó a background (%s)%s | WARN=%sbackgrounded\n' \
+      "$ts" "$safe_cmd" "$bg" "$origin" "$xrepo" >> "$dir/tdd-evidence.log" 2>/dev/null
   else
     # Las líneas JSON de log no son salida del runner: una suite que prueba caminos de
     # error imprime {"level":"error",…,"message":"Error: …"} y ahí no hay conteo ni
@@ -142,6 +152,7 @@ if is_test_run "$cmd"; then
         warn="${warn}full-suite-mid-cycle;"
       fi
     fi
+    safe_sum="$safe_sum$origin"
     [ -n "$warn" ] && safe_sum="$safe_sum | WARN=${warn%;}"
     printf '%s | exit=%s | %s | %s\n' "$ts" "$code" "$safe_cmd" "$safe_sum" >> "$dir/tdd-evidence.log" 2>/dev/null
   fi

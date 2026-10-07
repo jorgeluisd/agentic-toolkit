@@ -229,6 +229,80 @@ t "y dice a qué repo está anclada la sesión"   "$(gk verifier "revisá la ram
 
 
 
+# ------------------------------------------- worktrees y sesiones en paralelo
+# Dos sesiones a la vez en el mismo repositorio, cada una en su worktree, con
+# docs/sdd/ compartido por symlink. Con un único <raíz>/.current las corridas de
+# una sesión caían en la feature de la otra. El puntero es por worktree
+# (<git dir>/sdd-current) y la evidencia va a la feature del worktree donde corre
+# el comando, o a ninguna.
+sec "Worktrees · la feature activa es la del worktree"
+WT="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/sdd-wt.XXXXXX")" && pwd -P)"
+trap 'rm -rf "$R" "$C" "$WT"' EXIT
+M="$WT/main"; WS="$M/docs/sdd"
+mkdir -p "$M/src" "$WS/0021-uno" "$WS/0022-dos" "$WS/0030-principal"
+git -C "$M" init -q -b main .
+git -C "$M" config --local user.name "Dev Prueba"
+git -C "$M" config --local user.email "dev@example.com"
+printf 'docs/\n' > "$M/.gitignore"; printf 'x\n' > "$M/src/x.ts"
+git -C "$M" add -A >/dev/null && git -C "$M" commit -qm "chore: initial commit"
+for w in uno dos ops; do
+  git -C "$M" worktree add -q "$WT/wt-$w" -b "$w" >/dev/null 2>&1
+  mkdir -p "$WT/wt-$w/docs"; ln -s "$WS" "$WT/wt-$w/docs/sdd"
+done
+ptr(){ printf '%s\n' "$2" > "$(git -C "$1" rev-parse --absolute-git-dir)/sdd-current"; }
+ptr "$WT/wt-uno" 0021-uno; ptr "$WT/wt-dos" 0022-dos
+# El .current compartido, como lo dejaba el orquestador: todos los worktrees lo ven.
+printf '0030-principal\n' > "$WS/.current"
+L1="$WS/0021-uno/tdd-evidence.log"; L2="$WS/0022-dos/tdd-evidence.log"; LP="$WS/0030-principal/tdd-evidence.log"
+# wev <dir de la sesión> <comando> [env…]: la sesión y su cwd en ese worktree.
+wev(){ local s="$1" c="$2"; shift 2
+  printf '%s' "$(jq -nc --arg c "$c" --arg d "$s" \
+    '{hook_event_name:"PostToolUse",tool_name:"Bash",cwd:$d,tool_input:{command:$c},
+      tool_response:{stdout:"Tests: 7 passed, 7 total",stderr:"",interrupted:false}}')" \
+    | env CLAUDE_PROJECT_DIR="$s" "$@" bash "$HOOKS/post-bash.sh" >/dev/null 2>&1; }
+n(){ grep -c '7 passed' "$1" 2>/dev/null || echo 0; }
+total(){ cat "$WS"/*/tdd-evidence.log 2>/dev/null | grep -c '7 passed'; }
+
+wev "$WT/wt-uno" "pnpm test"
+wev "$WT/wt-dos" "pnpm vitest run src/x.spec.ts"
+t "(a) worktree uno anota en su feature"       "$(n "$L1")"                                  1
+t "(a) worktree dos anota en la suya"          "$(n "$L2")"                                  1
+t "(a) ninguno cae en el .current compartido"  "$(n "$LP")"                                  0
+t "(a) la línea dice worktree y rama"          "$(grep -c "| wt=$WT/wt-uno branch=uno" "$L1")" 1
+t "(a) y la del otro, los suyos"               "$(grep -c "| wt=$WT/wt-dos branch=dos" "$L2")" 1
+
+wev "$WT/wt-ops" "pnpm test" SDD_HOOKS_DEBUG=1
+t "(b) worktree sin feature no anota nada"     "$(total)"                                    2
+t "(b) ni crea un _unassigned compartido"      "$(yn "$WS/_unassigned")"                     no
+t "(b) con debug deja el aviso"                "$(grep -c "debug: post-bash: $WT/wt-ops (ops) no tiene feature activa" "$WS/.hook-errors.log" 2>/dev/null)" 1
+wev "$WT/wt-ops" "pnpm test"
+t "(b) sin debug no deja nada"                 "$(grep -c 'debug:' "$WS/.hook-errors.log" 2>/dev/null)" 1
+printf '%s' "$(jq -nc --arg d "$WT/wt-ops" '{tool_name:"Bash",cwd:$d,tool_input:{command:"pnpm test"},tool_use_id:"toolu_ops"}')" \
+  | env CLAUDE_PROJECT_DIR="$WT/wt-ops" bash "$HOOKS/pre-bash.sh" >/dev/null 2>&1
+t "(b) ni deja marca de pendiente"             "$(find "$WS" -path '*.tdd-pending*' -type f | wc -l | tr -d ' ')" 0
+t "(b) el gatekeeper no interviene"            "$(printf '%s' "$(jq -nc --arg d "$WT/wt-ops" '{tool_name:"Task",cwd:$d,tool_input:{subagent_type:"implementer"}}')" | env CLAUDE_PROJECT_DIR="$WT/wt-ops" bash "$HOOKS/pre-task.sh" 2>/dev/null | grep -c deny)" 0
+
+wev "$WT/wt-ops" "cd $WT/wt-dos && pnpm test"
+t "(c) cd <otro worktree>: anota en su feature" "$(n "$L2")"                                 2
+t "(c) con el worktree de destino en la línea"  "$(tail -n 1 "$L2" | grep -c "| wt=$WT/wt-dos branch=dos")" 1
+wev "$WT/wt-uno" "cd ../wt-dos && pnpm test"
+t "(c) cd relativo también"                    "$(n "$L2")"                                  3
+t "(c) y la sesión de origen no recibe nada"   "$(n "$L1")"                                  1
+t "(c) gatekeeper resuelve la feature pedida"  "$(printf '%s' "$(jq -nc --arg d "$WT/wt-ops" --arg p "revisá $WT/wt-dos/src" '{tool_name:"Task",cwd:$d,tool_input:{subagent_type:"implementer",prompt:$p}}')" | env CLAUDE_PROJECT_DIR="$WT/wt-ops" bash "$HOOKS/pre-task.sh" 2>/dev/null | grep -c '0022-dos')" 1
+
+wev "$M" "pnpm test"
+t "(d) principal sigue leyendo <raíz>/.current" "$(n "$LP")"                                 1
+t "(d) con su worktree y rama"                 "$(grep -c "| wt=$M branch=main" "$LP")"      1
+printf '%s' "$(jq -nc --arg d "$M" '{tool_name:"Bash",cwd:$d,tool_input:{command:"pnpm vitest run src/x.spec.ts"},tool_use_id:"toolu_main"}')" \
+  | env CLAUDE_PROJECT_DIR="$M" bash "$HOOKS/pre-bash.sh" >/dev/null 2>&1
+printf '%s' "$(jq -nc --arg d "$M" '{hook_event_name:"UserPromptSubmit",cwd:$d,prompt:"seguimos"}')" \
+  | env CLAUDE_PROJECT_DIR="$M" bash "$HOOKS/user-prompt.sh" >/dev/null 2>&1
+t "(d) la conciliación también lleva el origen" "$(grep -c "exit=!0 .*| wt=$M branch=main | WARN=" "$LP")" 1
+ptr "$M" 0021-uno; wev "$M" "pnpm test"
+t "(d) el puntero del git dir gana a .current" "$(n "$L1")"                                  2
+rm -f "$M/.git/sdd-current" "$WS/.current"; wev "$M" "pnpm test"
+t "(d) principal sin feature: _unassigned"     "$(n "$WS/_unassigned/tdd-evidence.log")"     1
+
 sec "Gatekeeper · sin feature activa no interviene"
 t "explorer sin .current"                  "$(task explorer)"          allow
 t "implementer sin .current"               "$(task implementer)"       allow

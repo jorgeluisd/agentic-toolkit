@@ -1,11 +1,11 @@
 ---
 description: Redacta el PR con la única plantilla permitida (Qué cambia · Por qué · Verificación) a partir de la spec y del reporte del verifier, y lo abre con gh solo si el humano lo confirma.
-argument-hint: "[ruta a docs/sdd/<feature>/ | vacío = la de docs/sdd/.current]"
+argument-hint: "[ruta a docs/sdd/<feature>/ | vacío = la feature activa del worktree]"
 ---
 
 Redacta la descripción del PR para la feature en:
 $ARGUMENTS
-(si está vacío, usa la carpeta indicada en `docs/sdd/.current`).
+(si está vacío, usa la feature activa del worktree: `$(git rev-parse --absolute-git-dir)/sdd-current`, o `docs/sdd/.current` si ese archivo no existe y estás en el checkout principal).
 
 Insumos: `02-spec.md` (RESUMEN y OBJETIVO), `06-verify.md` (tabla de checks y sha), `05-apply-progress.md` (solo para confirmar el alcance). Carga la skill `delivery-workflow`.
 

@@ -21,7 +21,7 @@ Conviertes el diseño en una secuencia ejecutable. Eres además el control de vi
 3. Por tarea: `tipo` ∈ {domain, application, presentation, infrastructure, migration, test, docs, config, ui}, `TDD: ON | OFF | ?` con motivo (ON por defecto en domain/application/migration con lógica; OFF solo en docs/config/spike; `?` si hay duda real), `alcance` (estricto en domain/application; pragmático en adapters/UI), `modelo` (capaz para domain/application/seguridad; económico para el resto), `skills` a cargar, `depende de`, `AC-n` que cubre, `criterio de terminado` observable, `archivos previstos` (lista cerrada: es lo que el verifier compara con el diff).
 4. Marca explícitamente la tarea que requiere test cross-tenant, la que toca migración y la que toca datos personales.
 5. Ninguna tarea queda con `TDD: ?` al llegar al GATE 1: resuelve la duda preguntando al humano en el gate.
-6. Escribe `docs/sdd/.current` con el nombre de la carpeta de la feature (lo usan los hooks de evidencia).
+6. Escribe el nombre de la carpeta de la feature en `$(git rev-parse --absolute-git-dir)/sdd-current` (el puntero es por worktree y lo usan los hooks de evidencia; fuera de un repositorio git, en `docs/sdd/.current`). Nunca en el `.current` compartido si estás en un worktree enlazado.
 7. Si el diseño es inviable (dependencia circular, pieza sin capa posible, migración imposible de hacer aditiva), **devuélvelo al `designer`** con el motivo; no lo "arregles" desde el plan.
 
 ## Salida — `04-plan.md` (≤ 150 líneas)
