@@ -2,7 +2,7 @@
 // Los guardrails van por un plugin JS: el shim de source/core/targets/opencode
 // traduce las llamadas a los mismos hooks bash de Claude Code y Codex.
 
-import { readText, classify, splitFrontmatter, withFrontmatter } from './lib.mjs';
+import { readText, classify, splitFrontmatter, withFrontmatter, isStack, stackDir, INSTALL_ARGS_SH, chooseStackSh, copyStackSh } from './lib.mjs';
 
 const PLUGIN_DIR = '.opencode/sdd-tdd-core';
 const SHIM = 'targets/opencode/sdd-guard.js';
@@ -11,13 +11,17 @@ export function buildTarget({ plugins, out, vars, spec }) {
   const commands = [];
   const agents = [];
 
-  for (const { src, files } of plugins) {
+  const stacks = plugins.filter(({ manifest }) => isStack(manifest)).map(({ manifest }) => manifest);
+
+  for (const { src, manifest, files } of plugins) {
+    const home = isStack(manifest) ? stackDir(manifest) : PLUGIN_DIR;
+    const skills = isStack(manifest) ? `${stackDir(manifest)}/skills` : '.opencode/skills';
     for (const file of files) {
       const { kind, name } = classify(file);
       if (kind === 'test') continue;
 
       if (kind === 'skill') {
-        out.copy(`${src}/${file}`, `.opencode/skills/${name}/SKILL.md`, vars);
+        out.copy(`${src}/${file}`, `${skills}/${name}/SKILL.md`, vars);
       } else if (kind === 'command') {
         commands.push({ name, ...commandFor(`${src}/${file}`, vars) });
       } else if (kind === 'agent') {
@@ -28,7 +32,7 @@ export function buildTarget({ plugins, out, vars, spec }) {
         out.copy(`${src}/${file}`, '.opencode/plugins/sdd-guard.js', vars);
       } else {
         const dest = file === 'templates/context-doc.md' ? `templates/${vars.CONTEXT_DOC}` : file;
-        out.copy(`${src}/${file}`, `${PLUGIN_DIR}/${dest}`, vars);
+        out.copy(`${src}/${file}`, `${home}/${dest}`, vars);
       }
     }
   }
@@ -37,7 +41,7 @@ export function buildTarget({ plugins, out, vars, spec }) {
   for (const agent of agents) out.write(`.opencode/agents/${agent.name}.md`, agent.text);
 
   out.write(vars.CONTEXT_DOC, agentsMd(commands, agents, vars));
-  out.write('install.sh', installSh(), { exec: true });
+  out.write('install.sh', installSh(stacks), { exec: true });
   out.write('README.md', readme(commands, agents));
 }
 
@@ -114,19 +118,24 @@ confirmación, así que lo que en Claude sería preguntar acá permite y queda e
 `;
 }
 
-function installSh() {
+function installSh(stacks) {
   return `#!/usr/bin/env bash
 # Instala el toolkit SDD+TDD para OpenCode en el repositorio actual.
-#   bash install.sh [ruta-al-repo]
+#   bash install.sh [ruta-al-repo] [--stack=<stack>|none]
+# Sin --stack lo detecta por los archivos del repo.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REPO="$(cd "\${1:-$PWD}" && pwd)"
+${INSTALL_ARGS_SH}
 
 [ -d "$REPO/.git" ] || { echo "no parece un repositorio git: $REPO"; exit 1; }
 
+${chooseStackSh(stacks)}
+
 mkdir -p "$REPO/.opencode"
 cp -R "$HERE/.opencode/." "$REPO/.opencode/"
+
+${copyStackSh({ skillsDir: '.opencode/skills', stackParent: '.opencode' })}
 
 if [ ! -f "$REPO/.agentic/sdd-hooks.env" ]; then
   mkdir -p "$REPO/.agentic"
@@ -149,7 +158,8 @@ el contenido vive en \`source/\` del repositorio del toolkit.
 ## Instalación
 
 \`\`\`bash
-bash install.sh /ruta/a/tu/repo
+bash install.sh /ruta/a/tu/repo              # detecta el stack (go.mod, package.json)
+bash install.sh /ruta/a/tu/repo --stack=go   # o lo elige: go, typescript, none
 \`\`\`
 
 ## Qué se instala
@@ -158,7 +168,8 @@ bash install.sh /ruta/a/tu/repo
 |---|---|
 | \`.opencode/agents/\` | Las ${agents.length} fases del pipeline, como subagentes |
 | \`.opencode/commands/\` | Los ${commands.length} comandos |
-| \`.opencode/skills/\` | Las skills, que OpenCode carga por \`description\` |
+| \`.opencode/skills/\` | Las skills del core y las del stack elegido, que OpenCode carga por \`description\` |
+| \`.opencode/<stack>/\` | Plantillas del stack elegido (CI, lint, settings) |
 | \`.opencode/plugins/sdd-guard.js\` | Shim que corre los hooks bash del toolkit |
 | \`.opencode/sdd-tdd-core/\` | Orquestador, gates, plantillas y scripts de hook |
 

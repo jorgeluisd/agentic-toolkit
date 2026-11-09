@@ -2,7 +2,7 @@
 // Devin no tiene hooks ni subagentes: el pipeline corre en modo solo y los
 // guardrails son reglas en AGENTS.md, no controles que frenen.
 
-import { readText, classify, splitFrontmatter } from './lib.mjs';
+import { readText, classify, splitFrontmatter, isStack, stackDir, INSTALL_ARGS_SH, chooseStackSh, copyStackSh } from './lib.mjs';
 
 const PLUGIN_DIR = '.agents/sdd-tdd-core';
 
@@ -21,29 +21,33 @@ export function buildTarget({ plugins, out, vars }) {
   const commands = [];
   const skills = [];
 
-  for (const { src, files } of plugins) {
+  const stacks = plugins.filter(({ manifest }) => isStack(manifest)).map(({ manifest }) => manifest);
+
+  for (const { src, manifest, files } of plugins) {
+    const stack = isStack(manifest);
+    const home = stack ? stackDir(manifest) : PLUGIN_DIR;
     for (const file of files) {
       const { kind, name } = classify(file);
       if (kind === 'test' || kind === 'hook') continue;
 
       if (kind === 'skill') {
         const { fields, body } = splitFrontmatter(readText(`${src}/${file}`, vars));
-        skills.push({ name, description: fields.description });
-        out.copy(`${src}/${file}`, `.agents/skills/${name}/SKILL.md`, vars);
-        out.write(`knowledge/${name}.md`, knowledgeEntry(name, fields.description, body));
+        if (!stack) skills.push({ name, description: fields.description });
+        out.copy(`${src}/${file}`, `${stack ? `${home}/skills` : '.agents/skills'}/${name}/SKILL.md`, vars);
+        out.write(`${stack ? `${home}/` : ''}knowledge/${name}.md`, knowledgeEntry(name, fields.description, body));
       } else if (kind === 'command') {
         const { fields, body } = splitFrontmatter(readText(`${src}/${file}`, vars));
         commands.push({ name, description: fields.description });
         out.write(`playbooks/${name}.devin.md`, playbook(name, fields, body));
       } else {
         const dest = file === 'templates/context-doc.md' ? `templates/${vars.CONTEXT_DOC}` : file;
-        out.copy(`${src}/${file}`, `${PLUGIN_DIR}/${dest}`, vars);
+        out.copy(`${src}/${file}`, `${home}/${dest}`, vars);
       }
     }
   }
 
   out.write(vars.CONTEXT_DOC, agentsMd(commands, vars));
-  out.write('install.sh', installSh(commands, skills), { exec: true });
+  out.write('install.sh', installSh(commands, skills, stacks), { exec: true });
   out.write('README.md', readme(commands, skills));
 }
 
@@ -126,20 +130,25 @@ el \`verifier\` lo contrasta contra el apply-progress. Formato en
 
 // Devin no instala nada local: el script deja en el repo lo que Devin lee de ahí y
 // lista lo que solo se carga desde la web.
-function installSh(commands, skills) {
+function installSh(commands, skills, stacks) {
   return `#!/usr/bin/env bash
 # Instala el toolkit SDD+TDD para Devin en el repositorio actual.
-#   bash install.sh [ruta-al-repo]
-# Playbooks y Knowledge no viven en el repo: se cargan a mano en la web de Devin.
+#   bash install.sh [ruta-al-repo] [--stack=<stack>|none]
+# Sin --stack lo detecta por los archivos del repo. Playbooks y Knowledge no
+# viven en el repo: se cargan a mano en la web de Devin.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REPO="$(cd "\${1:-$PWD}" && pwd)"
+${INSTALL_ARGS_SH}
 
 [ -d "$REPO/.git" ] || { echo "no parece un repositorio git: $REPO"; exit 1; }
 
+${chooseStackSh(stacks)}
+
 mkdir -p "$REPO/.agents"
 cp -R "$HERE/.agents/." "$REPO/.agents/"
+
+${copyStackSh({ skillsDir: '.agents/skills', stackParent: '.agents' })}
 
 if [ ! -f "$REPO/.agentic/sdd-hooks.env" ]; then
   mkdir -p "$REPO/.agentic"
@@ -159,6 +168,7 @@ fi
 echo "falta   commitear .agents/, .agentic/ y AGENTS.md: Devin los lee del repo"
 echo "falta   subir los ${commands.length} playbooks de $HERE/playbooks a Devin"
 echo "opcional cargar las ${skills.length} entradas de $HERE/knowledge en el Knowledge de Devin"
+[ "$STACK" = none ] || echo "opcional y las del stack, en $HERE/stacks/$STACK/knowledge"
 `;
 }
 
@@ -171,18 +181,19 @@ el contenido vive en \`source/\` del repositorio del toolkit.
 ## Instalación
 
 \`\`\`bash
-bash install.sh /ruta/a/tu/repo
+bash install.sh /ruta/a/tu/repo              # detecta el stack (go.mod, package.json)
+bash install.sh /ruta/a/tu/repo --stack=go   # o lo elige: go, typescript, none
 \`\`\`
 
-El script copia \`.agents/\` al repositorio, crea \`.agentic/sdd-hooks.env\` si no
+El script copia \`.agents/\` y las skills del stack elegido al repositorio, crea \`.agentic/sdd-hooks.env\` si no
 existe y crea \`AGENTS.md\` si el repositorio no tiene uno. Lo demás es manual:
 
 1. Si tu repositorio ya tenía \`AGENTS.md\`, pegá dentro el contenido de \`AGENTS.md\`.
 2. Commiteá \`.agents/\`, \`.agentic/\` y \`AGENTS.md\`. Devin los lee del repo.
 3. Subí los ${commands.length} playbooks de \`playbooks/*.devin.md\` a Devin
    (arrastrarlos al iniciar una sesión, o crearlos en la web).
-4. Opcional: cargá las ${skills.length} entradas de \`knowledge/\` en el Knowledge de
-   Devin. El *trigger* de cada una es la línea "Cuándo aplica".
+4. Opcional: cargá las ${skills.length} entradas de \`knowledge/\` y las de
+   \`stacks/<stack>/knowledge/\` en el Knowledge de Devin. El *trigger* de cada una es la línea "Cuándo aplica".
 
 ## Qué NO funciona acá
 

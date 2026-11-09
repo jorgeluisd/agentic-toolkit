@@ -6,7 +6,8 @@ el contenido vive en `source/` del repositorio del toolkit.
 ## Instalación
 
 ```bash
-bash install.sh /ruta/a/tu/repo
+bash install.sh /ruta/a/tu/repo              # detecta el stack (go.mod, package.json)
+bash install.sh /ruta/a/tu/repo --stack=go   # o lo elige: go, typescript, none
 ```
 
 Después, pegá el contenido de `AGENTS.md` en el `AGENTS.md` de tu repositorio y
@@ -18,7 +19,8 @@ reiniciá Codex.
 |---|---|---|
 | `.codex/hooks.json` | Registro de los hooks | repo, versionado |
 | `.codex/sdd-tdd-core/` | Orquestador, fases, gates, plantillas y scripts de hook | repo, versionado |
-| `.agents/skills/` | Las skills, que Codex carga por `description` | repo, versionado |
+| `.agents/skills/` | Las skills del core y las del stack elegido, que Codex carga por `description` | repo, versionado |
+| `.codex/<stack>/` | Plantillas del stack elegido (CI, lint, settings) | repo, versionado |
 | `prompts/*.md` | Los 8 comandos como slash commands | `$CODEX_HOME/prompts`, por máquina |
 
 ## Diferencias con Claude Code

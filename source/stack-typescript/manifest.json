@@ -21,6 +21,7 @@
     "onion-architecture",
     "screaming-architecture"
   ],
+  "detect": "package.json",
   "targets": [
     "claude",
     "codex",
