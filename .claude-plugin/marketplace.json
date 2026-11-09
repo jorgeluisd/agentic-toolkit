@@ -5,18 +5,24 @@
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
   },
-  "version": "2.3.0",
+  "version": "2.4.0",
   "plugins": [
     {
       "name": "sdd-tdd-core",
-      "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript u otro) que aporte las skills tecnicas.",
+      "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript, stack-go u otro) que aporte las skills tecnicas.",
       "source": "./plugins/sdd-tdd-core",
       "category": "development"
     },
     {
       "name": "stack-typescript",
-      "description": "Skills tecnicas del stack TypeScript para sdd-tdd-core: Onion + Screaming Architecture con enforcement por ESLint boundaries, dominio puro, CQRS y jobs, errores y Result, persistencia Drizzle/Postgres, multi-tenancy con RLS, testing con Vitest, seguridad baseline, logging con pino, frontend Next.js + React 19 + Tailwind 4, y actualizacion de dependencias con pnpm. Incluye plantillas de settings, CI y commitlint.",
+      "description": "Skills tecnicas del stack TypeScript para sdd-tdd-core: Onion + Screaming Architecture con enforcement por ESLint boundaries, dominio puro, CQRS y jobs, errores y Result, persistencia Drizzle/Postgres, multi-tenancy con RLS, testing con Vitest, seguridad baseline, logging con pino, frontend Next.js + React 19 + Tailwind 4, PWA estatica con React + Vite, y actualizacion de dependencias con pnpm. Incluye plantillas de settings, CI y commitlint.",
       "source": "./plugins/stack-typescript",
+      "category": "development"
+    },
+    {
+      "name": "stack-go",
+      "description": "Skills tecnicas del stack Go para sdd-tdd-core: Onion + Screaming Architecture con enforcement por depguard y archtest, dominio puro, errores tipados con mapeo HTTP unico, commands y queries con puertos, persistencia sqlc + pgx sobre Aurora DSQL con migraciones propias, multi-tenancy a nivel de aplicacion, una Lambda arm64 con chi y JWT de Cognito, testing con go test y Postgres en Docker, seguridad baseline, logging con slog, dependencias con Go modules y contrato OpenAPI con oapi-codegen. Incluye plantillas validadas de CI, golangci-lint, settings y paquetes base.",
+      "source": "./plugins/stack-go",
       "category": "development"
     }
   ]

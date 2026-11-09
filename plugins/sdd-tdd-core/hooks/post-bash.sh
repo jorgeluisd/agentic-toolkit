@@ -36,11 +36,11 @@ failed="$(printf '%s' "$INPUT" | jq -r 'if .hook_event_name == "PostToolUseFailu
 # Llegó el resultado de esta llamada: la marca que dejó PreToolUse ya no hace falta.
 clear_pending_test "$(jq_get '.tool_use_id')"
 
-# Conteos del runner: vitest/jest, node --test, pytest, phpunit/pest, go, cargo, dotnet.
+# Conteos del runner: vitest/jest, node --test (TAP `#` y spec `ℹ`, el default desde Node 23), pytest, phpunit/pest, go, cargo, dotnet.
 # RAN_RE: se ejecutó al menos un test (sin distinguir mayúsculas). FAILED_RE: al menos
 # uno terminó en rojo o el código no compiló (distingue mayúsculas: FAIL de jest/go).
-RAN_RE='[1-9][0-9]*[[:space:]]+(passed|failed|tests?[[:space:]]*(,|\)|$))|OK[[:space:]]*\([1-9]|^ok[[:space:]]|^#[[:space:]]+(pass|fail)[[:space:]]+[1-9]|test result: ok|passed!|Passed:[[:space:]]*[1-9]|tests: [1-9]'
-FAILED_RE='[1-9][0-9]*[[:space:]]+(failed|failing|errors?)([^[:alnum:]]|$)|^#[[:space:]]+fail[[:space:]]+[1-9]|^not ok[[:space:]]|(Failures|Errors|Failed):[[:space:]]*[1-9]|FAILURES!|test result: FAILED|^--- FAIL|^FAIL[[:space:]]|error TS[0-9]+'
+RAN_RE='[1-9][0-9]*[[:space:]]+(passed|failed|tests?[[:space:]]*(,|\)|$))|OK[[:space:]]*\([1-9]|^ok[[:space:]]|^(#|ℹ)[[:space:]]+(pass|fail)[[:space:]]+[1-9]|test result: ok|passed!|Passed:[[:space:]]*[1-9]|tests: [1-9]'
+FAILED_RE='[1-9][0-9]*[[:space:]]+(failed|failing|errors?)([^[:alnum:]]|$)|^(#|ℹ)[[:space:]]+fail[[:space:]]+[1-9]|^not ok[[:space:]]|(Failures|Errors|Failed):[[:space:]]*[1-9]|FAILURES!|test result: FAILED|^--- FAIL|^FAIL[[:space:]]|error TS[0-9]+'
 # COMPILE_RE: el rojo no es de comportamiento, la suite no llegó a correr (símbolo o
 # campo que no existe, sintaxis). Es el RED de API de `strict-tdd` §3, que exige
 # después un rojo de comportamiento sobre el esqueleto.
@@ -97,7 +97,7 @@ elif [ "$test_run" = 1 ]; then
     # fallo que leer. Quedan fuera del resumen y de la decisión del exit code.
     runner="$(printf '%s' "$all" | grep -vE '^[[:space:]]*\{.*\}[[:space:]]*$')"
     # Resumen: líneas de conteo del runner; si no hay, última línea no vacía.
-    summary="$(printf '%s' "$runner" | grep -E 'Tests?:?[[:space:]]+[0-9]+|Test Files|passed|failed|FAILURES|OK \(|error TS[0-9]+|\[ERROR\]|test result:|^#[[:space:]]+(tests|pass|fail)[[:space:]]+[0-9]+' | tail -n 3 | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-240)"
+    summary="$(printf '%s' "$runner" | grep -E 'Tests?:?[[:space:]]+[0-9]+|Test Files|passed|failed|FAILURES|OK \(|error TS[0-9]+|\[ERROR\]|test result:|^(#|ℹ)[[:space:]]+(tests|pass|fail)[[:space:]]+[0-9]+' | tail -n 3 | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | cut -c1-240)"
     [ -z "$summary" ] && summary="$(printf '%s' "$runner" | grep -v '^[[:space:]]*$' | tail -n 1 | cut -c1-240)"
     ran=0; printf '%s' "$runner" | grep -Eiq "$RAN_RE" && ran=1
     red=0; printf '%s' "$runner" | grep -Eq "$FAILED_RE" && red=1

@@ -1,6 +1,6 @@
 # ORCHESTRATOR — SDD + Strict TDD
 
-Pipeline de 10 agentes para construir software con especificación verificable, diseño explícito, TDD estricto y dos paradas humanas. Agnóstico de producto y de lenguaje: el contexto de negocio y las invariantes viven en el `AGENTS.md` y en la skill local de invariantes de cada proyecto; las reglas técnicas (capas, dominio, persistencia, tests, seguridad) las aporta el plugin de stack instalado junto a este core (`stack-typescript` u otro). Este documento define solo el proceso.
+Pipeline de 10 agentes para construir software con especificación verificable, diseño explícito, TDD estricto y dos paradas humanas. Agnóstico de producto y de lenguaje: el contexto de negocio y las invariantes viven en el `AGENTS.md` y en la skill local de invariantes de cada proyecto; las reglas técnicas (capas, dominio, persistencia, tests, seguridad) las aporta el plugin de stack instalado junto a este core (`stack-typescript`, `stack-go` u otro). Este documento define solo el proceso.
 
 ## 1. Pipeline
 

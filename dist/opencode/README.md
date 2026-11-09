@@ -6,7 +6,8 @@ el contenido vive en `source/` del repositorio del toolkit.
 ## Instalación
 
 ```bash
-bash install.sh /ruta/a/tu/repo
+bash install.sh /ruta/a/tu/repo              # detecta el stack (go.mod, package.json)
+bash install.sh /ruta/a/tu/repo --stack=go   # o lo elige: go, typescript, none
 ```
 
 ## Qué se instala
@@ -15,7 +16,8 @@ bash install.sh /ruta/a/tu/repo
 |---|---|
 | `.opencode/agents/` | Las 10 fases del pipeline, como subagentes |
 | `.opencode/commands/` | Los 8 comandos |
-| `.opencode/skills/` | Las skills, que OpenCode carga por `description` |
+| `.opencode/skills/` | Las skills del core y las del stack elegido, que OpenCode carga por `description` |
+| `.opencode/<stack>/` | Plantillas del stack elegido (CI, lint, settings) |
 | `.opencode/plugins/sdd-guard.js` | Shim que corre los hooks bash del toolkit |
 | `.opencode/sdd-tdd-core/` | Orquestador, gates, plantillas y scripts de hook |
 

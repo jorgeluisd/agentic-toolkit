@@ -1,0 +1,161 @@
+# Plantilla de CI de stack-go. Copiar a .github/workflows/ci.yml y ajustar solo
+# los comandos si el proyecto los declara distinto en su documento de contexto §6.
+# Cada job declara sus propios `permissions`; las Actions van fijadas por SHA; todo
+# dato del evento (título, body, shas) entra a los scripts por `env`, nunca en `run`.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOFLAGS: -mod=readonly
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version-file: go.mod, cache-dependency-path: "**/go.sum" }
+      - run: go mod download && (cd tools && go mod download)
+
+      # Orden: módulos → formato → lint (depguard) → typecheck → test (incluye archtest) → build
+      - name: Módulos ordenados
+        run: go mod tidy -diff && (cd tools && go mod tidy -diff)
+      - name: Formato
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then echo "::error::gofmt -l:"; echo "$unformatted"; exit 1; fi
+      - name: Lint
+        run: go tool -modfile=tools/go.mod golangci-lint run
+      - name: Typecheck
+        run: go vet ./...
+      - name: Test
+        run: go test -race -count=1 ./...
+      - name: Error codes únicos
+        run: |
+          dup=$(grep -rhoE --include='*.go' --exclude='*_test.go' 'errs\.New\(errs\.Kind[A-Za-z]+, "[A-Z_]+"' internal | grep -oE '"[A-Z_]+"' | sort | uniq -d || true)
+          if [ -n "$dup" ]; then echo "::error::Code repetido: $dup"; exit 1; fi
+      - name: Build (arm64, provided.al2023)
+        env: { CGO_ENABLED: "0", GOOS: linux, GOARCH: arm64 }
+        run: |
+          go build -tags lambda.norpc -trimpath -ldflags='-s -w' -o build/bootstrap ./cmd/api
+          file build/bootstrap | grep -q 'ARM aarch64, version 1 (SYSV), statically linked'
+
+  integration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DATABASE_URL: postgres://postgres@127.0.0.1:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version-file: go.mod }
+      # compose.yml y no `services:`: GitHub no deja pasar los -c que imitan a DSQL.
+      - run: docker compose up -d --wait
+      - name: Migraciones aplican en Postgres local
+        run: go run ./cmd/migrate -local && go run ./cmd/migrate -local
+      - name: Integración
+        run: go test -race -count=1 -tags integration ./...
+
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version-file: go.mod, cache-dependency-path: "**/go.sum" }
+      - name: Esquema para sqlc
+        run: go run ./cmd/migrate -schema | diff -u db/schema.sql -
+      - name: Código generado del backend
+        run: |
+          go tool -modfile=tools/go.mod oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+          go tool -modfile=tools/go.mod sqlc generate
+          go tool -modfile=tools/go.mod sqlc vet
+      - if: hashFiles('web/package.json') != ''
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with: { package_json_file: web/package.json }
+      - if: hashFiles('web/package.json') != ''
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version-file: web/.nvmrc, cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+      - if: hashFiles('web/package.json') != ''
+        name: Tipos del front
+        run: |
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir web exec openapi-typescript ../api/openapi.yaml -o src/api/schema.d.ts
+      - name: Lo generado coincide con lo commiteado
+        run: git diff --exit-code
+
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version-file: go.mod }
+      - name: Vulnerabilidades alcanzables
+        run: go tool -modfile=tools/go.mod govulncheck ./...
+      - name: Herramientas fuera del go.mod de la app
+        run: |
+          if grep -q '^tool' go.mod; then echo "::error::las herramientas van en tools/go.mod"; exit 1; fi
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Secretos en el historial del PR
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  conventions:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      BODY: ${{ github.event.pull_request.body }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Asunto type(scope) en título y commits (delivery-workflow §1)
+        run: |
+          scopes=$(find internal -mindepth 1 -maxdepth 1 -type d -printf '%f|' 2>/dev/null)
+          re="^(feat|fix|refactor|test|docs|chore|ci|build|perf|revert)\((${scopes}kernel|platform|api|web|infra|docs|ci|deps)\)!?: [a-z].*[^.]$"
+          check() { [ ${#1} -le 72 ] && printf '%s\n' "$1" | grep -qE "$re"; }
+          check "$PR_TITLE" || { echo "::error::título fuera de formato: $PR_TITLE"; exit 1; }
+          git log --no-merges --format=%s "$BASE_SHA..$HEAD_SHA" | while IFS= read -r subject; do
+            check "$subject" || { echo "::error::commit fuera de formato: $subject"; exit 1; }
+          done
+      - name: Sin trailers ni menciones de IA (delivery-workflow §2 y §9)
+        run: |
+          ai='co-authored-by|claude-session|devin-session|generated with|anthropic|openai|claude\.ai'
+          if git log --format='%an <%ae>%n%B' "$BASE_SHA..$HEAD_SHA" | grep -iE "$ai"; then
+            echo "::error::commit con atribución de IA"; exit 1; fi
+          if printf '%s\n%s' "$PR_TITLE" "$BODY" | grep -iE "$ai"; then
+            echo "::error::PR con atribución de IA"; exit 1; fi
+      - name: Plantilla de PR
+        run: |
+          for h in "## Qué cambia" "## Verificación"; do
+            printf '%s' "$BODY" | grep -qF "$h" || { echo "::error::falta la sección '$h' en el PR"; exit 1; }
+          done

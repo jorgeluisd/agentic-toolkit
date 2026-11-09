@@ -1,0 +1,37 @@
+{
+  "name": "stack-go",
+  "displayName": "Stack Go (Lambda + chi + Aurora DSQL + sqlc)",
+  "version": "2.4.0",
+  "description": "Skills tecnicas del stack Go para sdd-tdd-core: Onion + Screaming Architecture con enforcement por depguard y archtest, dominio puro, errores tipados con mapeo HTTP unico, commands y queries con puertos, persistencia sqlc + pgx sobre Aurora DSQL con migraciones propias, multi-tenancy a nivel de aplicacion, una Lambda arm64 con chi y JWT de Cognito, testing con go test y Postgres en Docker, seguridad baseline, logging con slog, dependencias con Go modules y contrato OpenAPI con oapi-codegen. Incluye plantillas validadas de CI, golangci-lint, settings y paquetes base.",
+  "author": {
+    "name": "Jorge Diaz",
+    "email": "diazjorgeluis10@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/jorgeluisd/agentic-toolkit",
+  "repository": "https://github.com/jorgeluisd/agentic-toolkit",
+  "keywords": [
+    "go",
+    "golang",
+    "aws-lambda",
+    "chi",
+    "aurora-dsql",
+    "sqlc",
+    "pgx",
+    "openapi",
+    "onion-architecture",
+    "screaming-architecture"
+  ],
+  "detect": "go.mod",
+  "targets": [
+    "claude",
+    "codex",
+    "opencode",
+    "devin"
+  ],
+  "fileTargets": {
+    "templates/settings.json": [
+      "claude"
+    ]
+  }
+}

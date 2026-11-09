@@ -3,7 +3,7 @@
 // Los hooks bash son los mismos que en Claude Code: Codex usa el mismo esquema de
 // payload y de decisión. Lo único que cambia es dónde se registran.
 
-import { readText, classify, splitFrontmatter, withFrontmatter } from './lib.mjs';
+import { readText, classify, splitFrontmatter, withFrontmatter, isStack, stackDir, INSTALL_ARGS_SH, chooseStackSh, copyStackSh } from './lib.mjs';
 
 const PLUGIN_DIR = '.codex/sdd-tdd-core';
 const SKILLS_DIR = '.agents/skills';
@@ -12,20 +12,24 @@ const PROMPTS_DIR = 'prompts';
 export function buildTarget({ plugins, out, vars }) {
   const commands = [];
 
+  const stacks = plugins.filter(({ manifest }) => isStack(manifest)).map(({ manifest }) => manifest);
+
   for (const { src, manifest, files } of plugins) {
+    const home = isStack(manifest) ? stackDir(manifest) : PLUGIN_DIR;
+    const skills = isStack(manifest) ? `${stackDir(manifest)}/skills` : SKILLS_DIR;
     for (const file of files) {
       const { kind, name } = classify(file);
       if (kind === 'test') continue;
 
       if (kind === 'skill') {
-        out.copy(`${src}/${file}`, `${SKILLS_DIR}/${name}/SKILL.md`, vars);
+        out.copy(`${src}/${file}`, `${skills}/${name}/SKILL.md`, vars);
       } else if (kind === 'command') {
         commands.push({ name, ...promptFor(`${src}/${file}`, vars) });
       } else if (kind === 'hook') {
         out.copy(`${src}/${file}`, `${PLUGIN_DIR}/hooks/${name}`, vars, { exec: name.endsWith('.sh') });
       } else {
         const dest = file === 'templates/context-doc.md' ? `templates/${vars.CONTEXT_DOC}` : file;
-        out.copy(`${src}/${file}`, `${PLUGIN_DIR}/${dest}`, vars);
+        out.copy(`${src}/${file}`, `${home}/${dest}`, vars);
       }
     }
     if (manifest.hooks) out.json('.codex/hooks.json', hooksJson(manifest.hooks, vars));
@@ -34,7 +38,7 @@ export function buildTarget({ plugins, out, vars }) {
   for (const cmd of commands) out.write(`${PROMPTS_DIR}/${cmd.name}.md`, cmd.text);
 
   out.write(vars.CONTEXT_DOC, agentsMd(commands, vars));
-  out.write('install.sh', installSh(), { exec: true });
+  out.write('install.sh', installSh(stacks), { exec: true });
   out.write('README.md', readme(commands));
 }
 
@@ -107,23 +111,28 @@ más rápido — si uno te frena, el cambio es lo que está mal.
 `;
 }
 
-function installSh() {
+function installSh(stacks) {
   return `#!/usr/bin/env bash
 # Instala el toolkit SDD+TDD para Codex CLI en el repositorio actual.
-#   bash install.sh [ruta-al-repo]
-# Los prompts son de usuario ($CODEX_HOME/prompts) y hay que reinstalarlos por máquina.
+#   bash install.sh [ruta-al-repo] [--stack=<stack>|none]
+# Sin --stack lo detecta por los archivos del repo. Los prompts son de usuario
+# ($CODEX_HOME/prompts) y hay que reinstalarlos por máquina.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REPO="$(cd "\${1:-$PWD}" && pwd)"
+${INSTALL_ARGS_SH}
 CODEX_HOME="\${CODEX_HOME:-$HOME/.codex}"
 
 [ -d "$REPO/.git" ] || { echo "no parece un repositorio git: $REPO"; exit 1; }
+
+${chooseStackSh(stacks)}
 
 mkdir -p "$REPO/.codex" "$REPO/.agents" "$CODEX_HOME/prompts"
 cp -R "$HERE/.codex/." "$REPO/.codex/"
 cp -R "$HERE/.agents/." "$REPO/.agents/"
 cp "$HERE/prompts/"*.md "$CODEX_HOME/prompts/"
+
+${copyStackSh({ skillsDir: SKILLS_DIR, stackParent: '.codex' })}
 
 if [ ! -f "$REPO/.agentic/sdd-hooks.env" ]; then
   mkdir -p "$REPO/.agentic"
@@ -147,7 +156,8 @@ el contenido vive en \`source/\` del repositorio del toolkit.
 ## Instalación
 
 \`\`\`bash
-bash install.sh /ruta/a/tu/repo
+bash install.sh /ruta/a/tu/repo              # detecta el stack (go.mod, package.json)
+bash install.sh /ruta/a/tu/repo --stack=go   # o lo elige: go, typescript, none
 \`\`\`
 
 Después, pegá el contenido de \`AGENTS.md\` en el \`AGENTS.md\` de tu repositorio y
@@ -159,7 +169,8 @@ reiniciá Codex.
 |---|---|---|
 | \`.codex/hooks.json\` | Registro de los hooks | repo, versionado |
 | \`.codex/sdd-tdd-core/\` | Orquestador, fases, gates, plantillas y scripts de hook | repo, versionado |
-| \`.agents/skills/\` | Las skills, que Codex carga por \`description\` | repo, versionado |
+| \`.agents/skills/\` | Las skills del core y las del stack elegido, que Codex carga por \`description\` | repo, versionado |
+| \`.codex/<stack>/\` | Plantillas del stack elegido (CI, lint, settings) | repo, versionado |
 | \`prompts/*.md\` | Los ${commands.length} comandos como slash commands | \`$CODEX_HOME/prompts\`, por máquina |
 
 ## Diferencias con Claude Code

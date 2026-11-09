@@ -6,18 +6,19 @@ el contenido vive en `source/` del repositorio del toolkit.
 ## Instalación
 
 ```bash
-bash install.sh /ruta/a/tu/repo
+bash install.sh /ruta/a/tu/repo              # detecta el stack (go.mod, package.json)
+bash install.sh /ruta/a/tu/repo --stack=go   # o lo elige: go, typescript, none
 ```
 
-El script copia `.agents/` al repositorio, crea `.agentic/sdd-hooks.env` si no
+El script copia `.agents/` y las skills del stack elegido al repositorio, crea `.agentic/sdd-hooks.env` si no
 existe y crea `AGENTS.md` si el repositorio no tiene uno. Lo demás es manual:
 
 1. Si tu repositorio ya tenía `AGENTS.md`, pegá dentro el contenido de `AGENTS.md`.
 2. Commiteá `.agents/`, `.agentic/` y `AGENTS.md`. Devin los lee del repo.
 3. Subí los 8 playbooks de `playbooks/*.devin.md` a Devin
    (arrastrarlos al iniciar una sesión, o crearlos en la web).
-4. Opcional: cargá las 14 entradas de `knowledge/` en el Knowledge de
-   Devin. El *trigger* de cada una es la línea "Cuándo aplica".
+4. Opcional: cargá las 3 entradas de `knowledge/` y las de
+   `stacks/<stack>/knowledge/` en el Knowledge de Devin. El *trigger* de cada una es la línea "Cuándo aplica".
 
 ## Qué NO funciona acá
 

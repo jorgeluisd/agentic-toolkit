@@ -1,0 +1,116 @@
+# Plantilla de stack-go: copiar a .golangci.yml en la raíz del módulo y
+# reemplazar github.com/OWNER/REPO por la ruta de go.mod. Corre con
+# `go tool -modfile=tools/go.mod golangci-lint run` (<lint>); debe terminar en `0 issues.`
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags: [integration]
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - depguard
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - gosec
+    - nilerr
+    - noctx
+    - revive
+    - sloglint
+    - sqlclosecheck
+    - unconvert
+    - usestdlibvars
+  settings:
+    depguard:
+      rules:
+        # kernel y domain: Go puro. Ni transporte, ni DB, ni logs, ni azar, ni JSON.
+        pure:
+          list-mode: strict
+          files: ["**/internal/kernel/**", "**/internal/*/domain/**", "!$test"]
+          allow: [$gostd, github.com/OWNER/REPO/internal]
+          deny:
+            - { pkg: net/http, desc: "HTTP vive en adapters/http" }
+            - { pkg: database/sql, desc: "la DB vive en adapters/postgres" }
+            - { pkg: encoding/json, desc: "sin JSON en el dominio: DTO en adapters/http" }
+            - { pkg: os, desc: "config y entorno en platform/config" }
+            - { pkg: log, desc: "el dominio no loguea: devuelve errores" }
+            - { pkg: log/slog, desc: "el dominio no loguea: devuelve errores" }
+            - { pkg: math/rand, desc: "azar e IDs por puerto (kernel.IDGenerator)" }
+            - { pkg: crypto/rand, desc: "azar e IDs por puerto (kernel.IDGenerator)" }
+        application:
+          list-mode: lax
+          files: ["**/internal/*/application/**", "!$test"]
+          deny:
+            - { pkg: net/http, desc: "application no sabe de HTTP: el adapter traduce" }
+            - { pkg: database/sql, desc: "puerto en application, adapter en adapters/postgres" }
+            - { pkg: os, desc: "config inyectada desde cmd" }
+            - { pkg: github.com/jackc/pgx, desc: "puerto en application, adapter en adapters/postgres" }
+            - { pkg: github.com/go-chi, desc: "HTTP vive en adapters/http" }
+            - { pkg: github.com/aws, desc: "AWS vive en adapters o platform" }
+            - { pkg: github.com/lestrrat-go, desc: "JWT vive en platform/auth" }
+        http-adapter:
+          list-mode: lax
+          files: ["**/internal/*/adapters/http/**", "!$test"]
+          deny:
+            - { pkg: github.com/jackc/pgx, desc: "el handler HTTP llama a application, nunca a la DB" }
+            - { pkg: database/sql, desc: "el handler HTTP llama a application, nunca a la DB" }
+        lambda-only-in-cmd:
+          list-mode: lax
+          files: ["**/internal/**", "!$test"]
+          deny:
+            - { pkg: github.com/aws/aws-lambda-go, desc: "el runtime de Lambda se toca solo en cmd/" }
+            - { pkg: github.com/awslabs/aws-lambda-go-api-proxy, desc: "el adaptador de Lambda se toca solo en cmd/" }
+        banned:
+          list-mode: lax
+          files: ["$all"]
+          deny:
+            - { pkg: github.com/pkg/errors, desc: "usar errors y fmt.Errorf con %w" }
+            - { pkg: github.com/stretchr/testify/mock, desc: "fakes escritos a mano en <ctx>test" }
+            - { pkg: github.com/sirupsen/logrus, desc: "log/slog" }
+            - { pkg: go.uber.org/zap, desc: "log/slog" }
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - { pattern: ^time\.Now$, msg: "reloj por puerto (kernel.Clock) o now como parámetro" }
+        - { pattern: ^panic$, msg: "devolvé un error; panic solo en tests" }
+        - { pattern: ^(fmt\.Print.*|print|println)$, msg: "log/slog por platform/log" }
+    exhaustive:
+      default-signifies-exhaustive: true
+    sloglint:
+      attr-only: true
+      static-msg: true
+      key-naming-case: camel
+    revive:
+      enable-default-rules: true
+      rules:
+        - name: context-as-argument
+          arguments: [{ allowTypesBefore: "*testing.T" }]
+  exclusions:
+    presets: [comments, std-error-handling]
+    rules:
+      - path-except: (internal/kernel/|internal/[^/]+/(domain|application)/)
+        linters: [forbidigo]
+        text: time\.Now
+      - path: _test\.go
+        linters: [forbidigo]
+        text: (panic|fmt\.Print)
+      - path: _test\.go
+        linters: [gosec]
+        text: G(101|204|304|705)
+      - path: _test\.go
+        linters: [noctx]
+        text: httptest\.NewRequest
+      - path: ^cmd/
+        linters: [forbidigo]
+        text: fmt\.Print
+
+formatters:
+  enable: [gofmt, goimports]
+  settings:
+    goimports:
+      local-prefixes: [github.com/OWNER/REPO]

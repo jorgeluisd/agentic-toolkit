@@ -564,6 +564,13 @@ t "con el resumen del runner"              "$(last | grep -c 'fail 1')"         
 t "sin marca de sospecha"                  "$(last | grep -c 'WARN=')"                              0
 t "cuenta como RED"                        "$(reds)"                                                1
 t "la marca de esa llamada se limpia"      "$(pending_count)"                                       0
+SPEC_OUT="✖ rechaza un pedido vacío (0.7ms)"$'\n'"ℹ tests 1"$'\n'"ℹ pass 0"$'\n'"ℹ fail 1"
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
+pre "$RED_CMD" toolu_spec >/dev/null
+fail_ev "$RED_CMD" "Exit code 1"$'\n'"$SPEC_OUT" toolu_spec
+t "reporter spec de node (ℹ fail 1)"       "$(last | grep -c 'fail 1')"                             1
+t "también cuenta como RED"                "$(reds)"                                                1
+: > "$F/tdd-evidence.log"; rm -rf "$F/.tdd-pending"
 prompt
 t "y no se concilia otra vez como exit=!0" "$(grep -c 'exit=!0' "$F/tdd-evidence.log")"             0
 
