@@ -13,7 +13,7 @@ En Go la versión ya queda exacta en `go.mod`, y MVS elige la mínima que satisf
 | Regla | Mecánica | Cómo se verifica |
 |---|---|---|
 | **Versión explícita.** Nunca `go get mod@latest`, `go get -u ./...` ni `-u=patch` en bloque | `go get <mod>@v<X.Y.Z>` con la versión elegida por §3 | El diff de `go.mod` en el PR muestra solo los módulos del grupo |
-| **Madurez ≥ 72 h.** Solo se adopta una versión publicada hace al menos 72 horas | Consulta del campo `Time` al proxy (§3) | El PR lista módulo, versión y fecha de publicación en la verificación |
+| **Madurez ≥ 72 h.** Solo se adopta una versión publicada hace al menos 72 horas, directa o transitiva | Consulta del campo `Time` al proxy (§3) | El PR lista módulo, versión y fecha de publicación en la verificación |
 | **Herramientas aisladas.** golangci-lint, sqlc, oapi-codegen y govulncheck van en `tools/go.mod` con la directiva `tool`, nunca en el `go.mod` de la app | Se agregan y ordenan **dentro** de `tools/` (`cd tools && go get -tool <mod>/cmd/<x>@v<X.Y.Z> && go mod tidy`) y se corren desde la raíz con `go tool -modfile=tools/go.mod <x>`. `go mod tidy -modfile=…` desde la raíz no sirve: toma el árbol de la app como parte del módulo de herramientas | `grep -c '^tool' go.mod` = 0; `tools/go.mod` tiene una línea `tool` por herramienta |
 | **`go mod tidy` sin diff** | `go mod tidy` después de cada cambio; en CI, `go mod tidy -diff` en la raíz y en `tools/` | Paso `Módulos ordenados` de `templates/ci.yml` |
 | **`go.sum` commiteado** con `go.mod`, en el mismo commit | `GOFLAGS=-mod=readonly` en CI: si falta una entrada, falla | El build del CI no modifica `go.mod` ni `go.sum` |
@@ -73,7 +73,7 @@ El campo `Time` lo devuelve el proxy (`GOPROXY`, por defecto `proxy.golang.org`)
 ## 4. Flujo por grupos
 
 1. **Rama** `chore/deps-<alcance>` desde la base (skill `delivery-workflow`). Línea base verde (§3). Si la base está roja, se reporta y se frena: no se mezcla un bump con un fix.
-2. **Inventario** con `go list -m -u -json all`. Clasificar en patch/minor (grupo normal) o major (ruta nueva: plan de migración, y ADR si es del stack).
+2. **Inventario** con `go list -m -u -json all`. Además, `go list -m all` contra el campo `Time` del proxy: ninguna versión del árbol, directa o transitiva, con menos de 72 h. Clasificar en patch/minor (grupo normal) o major (ruta nueva: plan de migración, y ADR si es del stack).
 3. **Elegir versión** por módulo: la última con ≥ 72 h, sin `Retracted` ni `Deprecated`. Si `govulncheck` exige una versión con menos de 72 h para cerrar una vulnerabilidad **alcanzable**, se adopta igual y se registra la excepción en `docs/sdd/<feature>/` con el ID `GO-AAAA-NNNN`.
 4. **Instalar por grupos**, con `<typecheck>`, `<lint>` y `<test>` en verde entre grupo y grupo, más `<test:integration>` si el grupo toca pgx o el SDK de AWS:
 
