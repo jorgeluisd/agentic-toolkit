@@ -34,6 +34,7 @@ El agente las carga solo cuando aplican, según la `description` de cada una.
 | **`security-baseline`** | OWASP con mitigación mecánica, JWT de un algoritmo, env con zod, webhooks HMAC, validación strict, allowlist SSRF, headers y rate limit con test, PII fuera de artefactos, cifrado envelope |
 | **`logging-pino`** | `pino` y `nestjs-pino`: `redact` por path, niveles por entorno, objeto primero y mensaje `{context}.{action}.{outcome}`, campo `err`, `traceId` propagado a jobs, catálogo de eventos críticos, test anti-fuga de PII |
 | **`frontend-next-react`** | Next.js App Router con Server Components por defecto, React 19 sin memo manual, `server-only`, Server Actions con zod y origen, consumo del API por contracts, errores por `code`, dinero en unidad menor, Tailwind 4 `@theme` + `cn()`, PWA idempotente, budgets Lighthouse |
+| **`frontend-react-vite-pwa`** | PWA estática con React 19 + Vite en S3 + CloudFront, sin SSR: rutas con code splitting, service worker con `vite-plugin-pwa`, cola offline en IndexedDB con `clientEventId` idempotente y Web Locks, Web Share con fallback a `wa.me`, tipos y cliente desde OpenAPI (`openapi-typescript` + `openapi-fetch`), CSP y caché en CloudFront, presupuestos de carga como gate |
 | **`dependency-upgrade`** | Versiones exactas con `save-exact`, madurez de 72 h verificada en el registry, scripts de instalación solo con aprobación explícita, flujo por grupos con checks, ADR para majors del stack, `audit` y lockfile |
 
 ---
