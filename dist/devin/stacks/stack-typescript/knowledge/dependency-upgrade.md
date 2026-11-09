@@ -13,7 +13,7 @@ Gestor único: **pnpm**. `npm install`/`yarn` prohibidos (generan otro lockfile 
 | Regla | Mecánica | Cómo se verifica |
 |---|---|---|
 | **Versiones exactas.** Nunca `^`, `~`, `latest`, `*` ni rangos en `dependencies`/`devDependencies` | `.npmrc`: `save-exact=true`; al editar a mano, escribir la versión literal (`"zod": "3.25.7"`) | Grep de rangos de §3 vacío |
-| **Madurez ≥ 72 h.** Solo se adopta una versión publicada hace al menos 72 h en npm | `.npmrc`: `minimum-release-age=4320` (minutos; requiere pnpm ≥ 10.16). Con pnpm menor, verificación manual por paquete (§3) | `npm view <pkg>@<v> time --json` → `now - time[v] ≥ 72h` |
+| **Madurez ≥ 72 h.** Solo se adopta una versión publicada hace al menos 72 h en npm, directa o transitiva | `.npmrc`: `minimum-release-age=4320` (minutos; requiere pnpm ≥ 10.16). Con pnpm menor, verificación manual por paquete (§3) | `npm view <pkg>@<v> time --json` → `now - time[v] ≥ 72h` |
 | **Scripts de instalación bloqueados.** `preinstall`/`install`/`postinstall`/`prepare` de dependencias no corren sin aprobación explícita del humano, paquete por paquete | Bloqueo por defecto de pnpm; allowlist mínima en `pnpm.onlyBuiltDependencies`; `pnpm approve-builds` solo tras OK | `npm view <pkg>@<v> scripts --json` inspeccionado antes de instalar; diff de `onlyBuiltDependencies` en el PR |
 | **Major del stack → ADR antes de tocar nada** (TypeScript, Node, pnpm, NestJS, Next.js, React, Tailwind, Postgres, Drizzle, Vitest, zod, pino, pg-boss) | ADR en `docs/adr/` con plan de migración y rollback; PR aparte del bump | El PR del major referencia el ADR en `docs/sdd/`, no en el cuerpo del PR |
 | **Lockfile siempre commiteado** y congelado en CI | `pnpm-lock.yaml` en el mismo commit que `package.json`; CI con `pnpm install --frozen-lockfile` | `git status --porcelain pnpm-lock.yaml` vacío tras `pnpm install` |
@@ -79,7 +79,7 @@ pnpm audit --audit-level=high
 ## 4. Flujo por grupos
 
 1. **Rama** `chore/deps-<alcance>` desde `develop` (ver skill `delivery-workflow`). Línea base verde guardada (§3, primer comando). Si la base está roja, se reporta y se detiene: no se mezcla un bump con un fix.
-2. **Inventario** con `pnpm outdated -r`. Clasificar: patch/minor (grupo normal) vs major (plan de migración; si es del stack, ADR primero).
+2. **Inventario** con `pnpm outdated -r`. Además, revisar las transitivas de `pnpm-lock.yaml`: ninguna versión del árbol con menos de 72 h. Con `minimumReleaseAge` pnpm también las rechaza con `--frozen-lockfile`. Clasificar: patch/minor (grupo normal) vs major (plan de migración; si es del stack, ADR primero).
 3. **Elegir versión** por paquete: última que cumpla madurez ≥ 72 h y no esté `deprecated`. Registrar en `docs/sdd/<feature>/` cuando se evitó la última versión por la regla.
 4. **Inspeccionar scripts** de cada paquete nuevo o subido (`npm view … scripts --json`). Si hay alguno, detenerse y presentar al humano: paquete, versión, script literal, qué hace. Sin OK explícito no se instala ni se aprueba. Nunca aprobación masiva ni flags que desactiven el bloqueo.
 5. **Instalar por grupos**, en este orden, con `pnpm typecheck && pnpm lint && pnpm test` verde **entre cada grupo** (y `pnpm test:integration` si el grupo toca Drizzle, Postgres o pg-boss):
