@@ -6,7 +6,7 @@ Este toolkit define un proceso, no un plugin de un producto. El proceso se escri
 
 | | Claude Code | Codex CLI | OpenCode | Devin |
 |---|---|---|---|---|
-| **Skills** (14) | ✅ `.claude/skills/` | ✅ `.agents/skills/` | ✅ `.opencode/skills/` | ⚠️ Knowledge, pegadas a mano |
+| **Skills** (3 del core + 12 del stack) | ✅ un plugin por stack, varios a la vez | ✅ `.agents/skills/`, un stack por repo | ✅ `.opencode/skills/`, un stack por repo | ⚠️ `.agents/skills/` y Knowledge pegada a mano, un stack por repo |
 | **Fases como subagentes** (10) | ✅ `agents/` + Task | ⚠️ a verificar | ✅ `mode: subagent` + Task | ❌ modo solo |
 | **Comandos** (8) | ✅ `commands/` | ✅ `~/.codex/prompts/` | ✅ `.opencode/commands/` | ⚠️ Playbooks `.devin.md` |
 | **Guardrails bloqueantes** | ✅ hooks nativos | ✅ mismos hooks | ✅ shim JS | ❌ solo instructivos |
@@ -27,6 +27,8 @@ Este toolkit define un proceso, no un plugin de un producto. El proceso se escri
 **Qué repositorio es "el proyecto".** Los hooks no lo sacan de ninguna variable de entorno de un agente: lo resuelven del payload y del propio comando, por precedencia — el `file_path` de una escritura, el directorio que el comando declara (`cd <repo>`, `--dir`, `-C`, `--prefix`), la primera ruta absoluta del comando, el `cwd` de la llamada y, al final, la raíz de la sesión. Por eso una sesión abierta en el repositorio A que corre los tests de B deja la evidencia en B, en los cuatro agentes por igual.
 
 **Los hooks bash.** Los mismos siete scripts corren en Claude Code y en Codex CLI sin modificación, porque el esquema de payload y de decisión es idéntico: JSON por stdin con `tool_name`/`tool_input`, respuesta `hookSpecificOutput.permissionDecision`. En OpenCode los invoca un shim JS que traduce nombres de herramienta.
+
+**Un stack por repositorio fuera de Claude Code.** Codex, OpenCode y Devin cargan las skills de una sola carpeta, y los stacks repiten nombres de skill a propósito (`domain-modeling` es la misma idea en TypeScript y en Go). Por eso `dist/<agente>/` guarda cada stack aparte en `stacks/<plugin>/`, y el `install.sh` copia solo el elegido: lo detecta por `go.mod` o `package.json`, o se fija con `--stack`. Un monorepo con los dos lenguajes elige uno en estos agentes; en Claude Code instala los dos plugins.
 
 ## Lo que se degrada, por agente
 

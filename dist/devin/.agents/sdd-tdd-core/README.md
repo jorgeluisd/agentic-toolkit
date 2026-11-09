@@ -2,7 +2,7 @@
 
 Proceso de desarrollo guiado por especificación con Strict TDD, **agnóstico de lenguaje**. Aporta 10 agentes, 2 gates humanos, un protocolo de artefactos en disco, comandos de sesión, tres skills de proceso y guardrails por hooks.
 
-Este plugin define **cómo se trabaja**. Las reglas técnicas del lenguaje (capas, dominio, persistencia, tests, seguridad) las aporta un plugin de stack instalado junto a este — `stack-typescript` u otro. El contexto de negocio y las invariantes viven en el `AGENTS.md` y en la skill local de invariantes de cada proyecto.
+Este plugin define **cómo se trabaja**. Las reglas técnicas del lenguaje (capas, dominio, persistencia, tests, seguridad) las aporta un plugin de stack instalado junto a este — `stack-typescript`, `stack-go` u otro. El contexto de negocio y las invariantes viven en el `AGENTS.md` y en la skill local de invariantes de cada proyecto.
 
 > El proceso completo está especificado en **[`ORCHESTRATOR.md`](ORCHESTRATOR.md)**. Este README es la referencia de instalación, configuración e inventario.
 

@@ -14,7 +14,7 @@ import { Output, flush, walk } from '../adapters/lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TARGETS = JSON.parse(readFileSync(join(ROOT, 'adapters/targets.json'), 'utf8'));
-const PLUGIN_DIRS = ['core', 'stack-typescript'];
+const PLUGIN_DIRS = ['core', 'stack-typescript', 'stack-go'];
 
 function loadPlugins(target) {
   return PLUGIN_DIRS.map((dir) => {

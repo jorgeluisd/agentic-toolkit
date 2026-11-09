@@ -8,16 +8,17 @@ No es una colección de prompts. Es un proceso con artefactos en disco, fases co
 
 ---
 
-## Los dos plugins
+## Los plugins
 
 El toolkit separa **el proceso** (agnóstico de lenguaje) de **las reglas técnicas** (propias de cada stack).
 
 | Plugin | Qué aporta | Cuándo instalarlo |
 |---|---|---|
 | **`sdd-tdd-core`** | 10 agentes, 2 gates humanos, protocolo de artefactos con gatekeeper de fases, comandos de sesión, skills de proceso (`sdd-pipeline`, `strict-tdd`, `delivery-workflow`) y guardrails por hooks | **Siempre.** Funciona con cualquier lenguaje |
-| **`stack-typescript`** | 11 skills técnicas para TypeScript: Onion + Screaming Architecture, dominio puro, CQRS, Result, Drizzle/Postgres, multi-tenancy con RLS, Vitest, seguridad, pino, Next.js, dependencias con pnpm. Plantillas de `settings.json`, CI y commitlint | En proyectos TypeScript |
+| **`stack-typescript`** | 12 skills técnicas para TypeScript: Onion + Screaming Architecture, dominio puro, CQRS, Result, Drizzle/Postgres, multi-tenancy con RLS, Vitest, seguridad, pino, Next.js, PWA con React + Vite, dependencias con pnpm. Plantillas de `settings.json`, CI y commitlint | En proyectos TypeScript |
+| **`stack-go`** | 12 skills técnicas para Go en Lambda: Onion + Screaming Architecture con depguard y archtest, dominio puro, errores tipados, commands y queries, sqlc + pgx sobre Aurora DSQL, multi-tenancy sin RLS, chi + JWT de Cognito, `go test`, seguridad, slog, Go modules, contrato OpenAPI con oapi-codegen. Plantillas validadas de CI, golangci-lint, `settings.json` y paquetes base | En proyectos Go |
 
-El core no sabe nada de tu lenguaje: pregunta por comandos simbólicos (`<test>`, `<lint>`, `<typecheck>`) que resuelve el documento de contexto de tu proyecto (`CLAUDE.md` o `AGENTS.md`) o el plugin de stack. Si trabajás en PHP, Python o Go, instalá solo el core y declará tus comandos — o escribí tu propio plugin de stack ([ver abajo](#extender-tu-propio-plugin-de-stack)).
+El core no sabe nada de tu lenguaje: pregunta por comandos simbólicos (`<test>`, `<lint>`, `<typecheck>`) que resuelve el documento de contexto de tu proyecto (`CLAUDE.md` o `AGENTS.md`) o el plugin de stack. Si trabajás en PHP o Python, instalá solo el core y declará tus comandos — o escribí tu propio plugin de stack ([ver abajo](#extender-tu-propio-plugin-de-stack)).
 
 ---
 
@@ -41,6 +42,7 @@ jq --version   # si no está: brew install jq · apt install jq
 claude plugin marketplace add jorgeluisd/agentic-toolkit
 claude plugin install sdd-tdd-core@agentic-toolkit
 claude plugin install stack-typescript@agentic-toolkit   # solo en proyectos TypeScript
+claude plugin install stack-go@agentic-toolkit           # solo en proyectos Go
 ```
 
 Por defecto la instalación es de usuario (`--scope user`): los plugins quedan disponibles en todos tus repos. Para atarlos a un proyecto, `--scope project`.
@@ -87,6 +89,14 @@ bash dist/opencode/install.sh /ruta/a/tu/repo   # OpenCode
 bash dist/devin/install.sh    /ruta/a/tu/repo   # Devin
 ```
 
+Cada instalador copia el core y **un** plugin de stack. Lo detecta por los archivos
+del repositorio (`go.mod` → `stack-go`, `package.json` → `stack-typescript`), o se
+elige con `--stack=go`, `--stack=typescript` o `--stack=none`. Si el repositorio
+tiene los dos archivos, pide elegir: en estos agentes las skills van a una sola
+carpeta y los dos stacks repiten nombres (`domain-modeling`, `testing-conventions`).
+En Claude Code no hace falta elegir, porque cada plugin tiene su propio espacio de
+nombres.
+
 En los tres casos queda un paso manual: pegar el contenido del `AGENTS.md` generado
 (`dist/<agente>/AGENTS.md`) en el `AGENTS.md` de tu repositorio. El instalador de
 Devin lo crea si el repositorio no tiene uno.
@@ -99,8 +109,8 @@ playbooks y el Knowledge se cargan desde su web. Después del instalador:
 1. Commiteá `.agents/`, `.agentic/` y `AGENTS.md`.
 2. Subí los 8 playbooks de `dist/devin/playbooks/*.devin.md` a Devin (arrastrarlos
    al iniciar una sesión, o crearlos en la web). Son los comandos del toolkit.
-3. Opcional: cargá las 14 entradas de `dist/devin/knowledge/` en el Knowledge de
-   Devin. El *trigger* de cada una es la línea "Cuándo aplica".
+3. Opcional: cargá las 3 entradas de `dist/devin/knowledge/` y las 12 del stack
+   (`dist/devin/stacks/<stack>/knowledge/`) en el Knowledge de Devin. El *trigger* de cada una es la línea "Cuándo aplica".
 
 Qué se degrada sin hooks ni subagentes está en `dist/devin/README.md` y en
 [`PORTABILITY.md`](PORTABILITY.md#devin).
@@ -230,6 +240,8 @@ source/                             # fuente única, sin nombres de agente
     commands/  skills/  gates/  hooks/  templates/  tests/
   stack-typescript/
     manifest.json  skills/  templates/
+  stack-go/
+    manifest.json  skills/  templates/
 
 adapters/                           # un módulo por agente + la tabla de placeholders
   targets.json  claude.mjs  codex.mjs  opencode.mjs  devin.mjs  lib.mjs
@@ -251,8 +263,8 @@ node bin/atk build --check     # falla si la salida commiteada quedó vieja
 
 El core es agnóstico a propósito. Para soportar otro stack no hace falta tocarlo: alcanza con un plugin que aporte skills técnicas.
 
-1. Creá `source/stack-<lenguaje>/manifest.json` con `name`, `version`, `description`, `license` y `targets`.
-2. Agregá las skills en `skills/<nombre>/SKILL.md`. Cada una necesita frontmatter con `name` y una `description` que **diga cuándo usarla** — es lo que el agente lee para decidir si la carga. Mirá `stack-typescript` como referencia.
+1. Creá `source/stack-<lenguaje>/manifest.json` con `name`, `version`, `description`, `license`, `targets` y `detect` (el archivo que identifica un repo de ese stack, como `go.mod`; lo usan los instaladores de Codex, OpenCode y Devin).
+2. Agregá las skills en `skills/<nombre>/SKILL.md`. Cada una necesita frontmatter con `name` y una `description` que **diga cuándo usarla** — es lo que el agente lee para decidir si la carga. Mirá `stack-typescript` o `stack-go` como referencia. Los nombres pueden repetir los de otro stack: cada uno queda aparte.
 3. Cubrí al menos: arquitectura y límites entre capas, convenciones de test (con los comandos reales que resuelven `<test>`, `<lint>`, `<typecheck>`), errores, persistencia y seguridad.
 4. Agregalo a `PLUGIN_DIRS` en `bin/atk` y corré `node bin/atk build`. El marketplace de Claude y los árboles de los demás agentes se regeneran solos.
 

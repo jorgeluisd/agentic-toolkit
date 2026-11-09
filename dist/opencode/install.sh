@@ -20,16 +20,17 @@ REPO="$(cd "$REPO_ARG" && pwd)"
 if [ -z "$STACK" ]; then
   found=""
   [ -f "$REPO/package.json" ] && found="$found typescript"
+  [ -f "$REPO/go.mod" ] && found="$found go"
   set -- $found
   case $# in
     0) STACK=none ;;
     1) STACK="$1" ;;
-    *) echo "el repo coincide con varios stacks ($found): elegí uno con --stack=<typescript|none>"; exit 1 ;;
+    *) echo "el repo coincide con varios stacks ($found): elegí uno con --stack=<typescript|go|none>"; exit 1 ;;
   esac
 fi
 case "$STACK" in none|stack-*) ;; *) STACK="stack-$STACK" ;; esac
 if [ "$STACK" != none ] && [ ! -d "$HERE/stacks/$STACK" ]; then
-  echo "stack desconocido: $STACK (disponibles: typescript none)"; exit 1
+  echo "stack desconocido: $STACK (disponibles: typescript go none)"; exit 1
 fi
 
 mkdir -p "$REPO/.opencode"
