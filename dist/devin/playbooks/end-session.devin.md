@@ -10,7 +10,7 @@ Cierra la sesión en este orden estricto.
 
 1. **Resumen** (idioma del proyecto): objetivo declarado, completado, abierto y por qué, decisiones tomadas (formales o tácticas), descubrimientos y blockers, archivos nuevos o muy modificados.
 
-2. **Git**: `git status` y `git log --oneline -5`. Si hay cambios sin commitear que están en verde, commitéalos siguiendo `delivery-workflow` (un commit por cambio coherente, `type(scope)` en inglés, sin trailers de IA, identidad personal); lo que esté a medias o en rojo se deja sin commitear y se anota como pendiente. No pushees: pregunta si el humano quiere push y PR, o qué queda pendiente.
+2. **Git**: `git status` y `git log --oneline -5`. Si hay cambios sin commitear que están en verde, commitéalos siguiendo `delivery-workflow` (un commit por cambio coherente, `type(scope)` en inglés, sin trailers de IA, identidad personal); lo que esté a medias o en rojo se deja sin commitear y se anota como pendiente. No pushees: pregunta si el humano quiere push y PR, o qué queda pendiente. Con `SDD_AUTONOMY=auto` pusheas la rama de feature (nunca la base) para que el estado sea legible desde el remoto.
 
 3. **Clasifica cada hallazgo**:
    a) Decisión sustantiva (arquitectura, stack, modelo, reglas de producto) → ADR con `/new-adr`; no lo escribas aquí, lístalo con el número que le tocaría.
@@ -22,6 +22,8 @@ Cierra la sesión en este orden estricto.
 4. **Updates al repo**: para (b), (c), (d) muestra el diff propuesto y **espera el OK explícito** antes de aplicar. Nada va directo a la rama base.
 
 5. **Memoria persistente** (si existe): guarda el cierre y lo no obvio; nunca datos personales, secretos ni identificadores de producción. Si no existe, omite.
+
+5b. **Handoff legible desde el remoto**: escribe `<raíz>/_handoff/<YYYY-MM-DD>-<rama>.md` (≤ 40 líneas: objetivo, hecho, abierto, decisiones pendientes del humano, próximo paso, commit) y commitealo en la rama actual. Es lo que otra sesión o un planner lee sin que el humano copie y pegue.
 
 6. **Próxima sesión**: objetivo concreto, qué leer antes, prerequisitos, y el prompt de continuación con el commit actual de la rama base.
 

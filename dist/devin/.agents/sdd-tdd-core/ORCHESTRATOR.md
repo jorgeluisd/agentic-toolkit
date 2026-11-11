@@ -131,6 +131,8 @@ El nivel se declara en `<raíz>/<feature>/.level` (`full` | `bugfix`); lo escrib
 
 **GATE 2 — después de `verifier` PASS, `code-reviewer` sin hallazgos altos (+ `security-reviewer` si corrió).** Contiene solo lo que la máquina no puede decidir: ¿es lo correcto para el producto?, ¿el diff coincide con lo aprobado en GATE 1?, ¿se acepta el riesgo residual?, ¿go/no-go de la migración?, ¿los ADRs quedaron firmados? Un FAIL del `verifier` nunca llega al gate. Checklist en `gates/gate-2-impl.md`.
 
+**GATE 2 automático (`SDD_AUTONOMY=auto`).** El orquestador corre `bash .agents/sdd-tdd-core/hooks/gate2-auto.sh` desde el worktree. El script comprueba lo mecánico —verify PASS sobre el HEAD exacto, review `APROBADO`, security sin críticos ni altos con riesgo residual `aceptable` (si corrió), GATE 1 aprobado en nivel `full`, ningún ADR `PROPUESTO` en el diff, ninguna ruta de `SDD_HUMAN_PATHS`, ningún artefacto con `GATE 2: humano`— y, si todo pasa, registra `GATE 2 · <fecha> · auto · APROBADO · sha: <HEAD>` en `gates.md`. Con ese registro el agente pushea, abre el PR y mergea hacia la rama base sin preguntar; el hook `pre-bash` solo deja pasar `gh pr merge` si el registro corresponde al HEAD actual, así que un commit posterior lo invalida. Si el script sale 1, el GATE 2 es humano como en `strict` y se muestran sus motivos. Los disparadores semánticos del proyecto (cutover, cambios de modo, secretos, datos reales…) se declaran en el `AGENTS.md`; el `proposer` y el `designer` los evalúan y escriben `GATE 2: humano — <motivo>` en su artefacto cuando aplican. Un release desde la rama base nunca es automático.
+
 ## 5. Modelo por agente (valor por defecto; el proyecto puede subirlo, nunca bajarlo en agentes marcados ⬆)
 
 | Agente | Modelo | Razón |

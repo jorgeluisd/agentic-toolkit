@@ -124,6 +124,16 @@
       "title": "Comentarios: porcentaje maximo de lineas por archivo",
       "default": "15",
       "description": "Porcentaje de lineas comentadas a partir del cual se bloquea la escritura de un archivo de codigo (tests, migraciones, configs y scripts quedan exentos). Default 15."
+    },
+    "autonomy": {
+      "title": "Autonomia de entrega",
+      "default": "strict",
+      "description": "strict: push, PR y merge los decide el humano en GATE 2. auto: el agente pushea su rama, abre el PR y mergea hacia la rama base cuando gate2-auto.sh registra un GATE 2 automatico para el HEAD exacto; un release desde la rama base nunca es automatico. Vacio = strict."
+    },
+    "human_paths": {
+      "title": "Rutas que fuerzan GATE 2 humano (regex)",
+      "default": "",
+      "description": "Expresion regular extendida sobre las rutas del diff. Si el diff toca alguna, el GATE 2 automatico no se registra y decide un humano (p. ej. ^infra/|migrations/). Vacio = ninguna."
     }
   },
   "fileTargets": {

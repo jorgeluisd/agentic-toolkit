@@ -80,6 +80,20 @@
       "description": "Porcentaje de lineas comentadas a partir del cual se bloquea la escritura de un archivo de codigo (tests, migraciones, configs y scripts quedan exentos). Default 15.",
       "default": "15",
       "required": false
+    },
+    "autonomy": {
+      "type": "string",
+      "title": "Autonomia de entrega",
+      "description": "strict: push, PR y merge los decide el humano en GATE 2. auto: el agente pushea su rama, abre el PR y mergea hacia la rama base cuando gate2-auto.sh registra un GATE 2 automatico para el HEAD exacto; un release desde la rama base nunca es automatico. Vacio = strict.",
+      "default": "strict",
+      "required": false
+    },
+    "human_paths": {
+      "type": "string",
+      "title": "Rutas que fuerzan GATE 2 humano (regex)",
+      "description": "Expresion regular extendida sobre las rutas del diff. Si el diff toca alguna, el GATE 2 automatico no se registra y decide un humano (p. ej. ^infra/|migrations/). Vacio = ninguna.",
+      "default": "",
+      "required": false
     }
   },
   "homepage": "https://github.com/jorgeluisd/agentic-toolkit",
