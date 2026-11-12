@@ -363,6 +363,9 @@ t "push --force"                           "$(cmd 'git push --force origin main'
 t "push --no-verify"                       "$(cmd 'git push --no-verify origin x')"                     deny
 t "push a la rama base"                    "$(cmd 'git push origin develop')"                           ask
 t "push a rama de feature"                 "$(cmd 'git push origin feat/alta-pedido')"                   allow
+t "cambiarse a la base y mergear"          "$(cmd 'git switch develop && git merge feat/x')"            ask
+t "gh pr merge --admin"                    "$(cmd 'gh pr merge 12 --admin --squash')"                   deny
+t "gh pr merge en modo strict"             "$(cmd 'gh pr merge 12 --squash')"                           ask
 t "salida de tests filtrada por pipe"      "$(cmd 'npm test | tail -5')"                                deny
 t "comando inocuo"                         "$(cmd 'ls -la')"                                            allow
 
@@ -736,6 +739,60 @@ t "gates.md archivado versionado"          "$(printf '%s' "$TRK" | grep -c '_arc
 # misma forma de decisión. La diferencia real es que no exporta CLAUDE_PROJECT_DIR
 # y no declara PostToolUseFailure. Estas aserciones corren los hooks sin ninguna
 # variable de entorno de Claude, anclados solo en el payload.
+sec "Autonomía · GATE 2 automático atado al sha"
+A="$(mktemp -d "${TMPDIR:-/tmp}/sdd-auto.XXXXXX")"
+git -C "$A" init -q -b develop .
+git -C "$A" config --local user.name "Dev Prueba"; git -C "$A" config --local user.email "dev@example.com"
+mkdir -p "$A/.agentic" "$A/src" "$A/docs/adr"
+printf 'SDD_BASE_BRANCH=develop\nSDD_AUTONOMY=auto\nSDD_HUMAN_PATHS=^infra/\n' > "$A/.agentic/sdd-hooks.env"
+printf 'x\n' > "$A/src/a.ts"; git -C "$A" add -A; git -C "$A" commit -qm "chore: init"
+g2(){ (cd "$A" && env -u SDD_AUTONOMY -u SDD_BASE_BRANCH -u SDD_HUMAN_PATHS CLAUDE_PROJECT_DIR="$A" bash "$HOOKS/gate2-auto.sh" >/dev/null 2>&1; echo $?); }
+acmd(){ local o; o="$(printf '%s' "$(jq -nc --arg c "$1" --arg d "$A" '{tool_name:"Bash",cwd:$d,tool_input:{command:$c}}')" \
+  | env -u SDD_AUTONOMY -u SDD_BASE_BRANCH CLAUDE_PROJECT_DIR="$A" bash "$HOOKS/pre-bash.sh" 2>/dev/null)"
+  if [ -z "$o" ]; then echo allow; else printf '%s' "$o" | jq -r '.hookSpecificOutput.permissionDecision'; fi; }
+t "en la rama base no aplica"              "$(g2)" 2
+git -C "$A" switch -qc feat/x
+t "sin feature activa no aplica"           "$(g2)" 2
+AF="$A/docs/sdd/0001-x"; mkdir -p "$AF"
+printf '0001-x\n' > "$(git -C "$A" rev-parse --absolute-git-dir)/sdd-current"
+printf 'y\n' > "$A/src/a.ts"; git -C "$A" commit -qam "feat(x): change"
+setsha(){ printf 'RESUMEN: PASS (5 checks)\nsha verificado: %s\n' "$(git -C "$A" rev-parse HEAD)" >| "$AF/06-verify.md"; }
+t "sin artefactos es humano"               "$(g2)" 1
+t "rebase de la feature sobre la base"     "$(acmd 'git rebase origin/develop')" allow
+t "merge de la base en la feature"         "$(acmd 'git merge develop')"         allow
+setsha
+printf 'RESUMEN: 0 hallazgos (0/0/0) · veredicto: APROBADO\n' > "$AF/07-review.md"
+t "sin GATE 1 es humano"                   "$(g2)" 1
+printf 'GATE 1 · 2026-01-01 · dev · APROBADO · token: "acepto"\n' > "$AF/gates.md"
+printf 'RESUMEN: 1 hallazgos (0/1/0/0) · riesgo residual: aceptable\n' > "$AF/07-security.md"
+t "security con un alto es humano"         "$(g2)" 1
+printf 'RESUMEN: 1 hallazgos (0/0/1/0) · riesgo residual: requiere decisión\n' > "$AF/07-security.md"
+t "riesgo residual a decidir es humano"    "$(g2)" 1
+printf 'RESUMEN: 1 hallazgos (0/0/0/1) · riesgo residual: aceptable\n' > "$AF/07-security.md"
+printf 'GATE 2: humano — toca el cutover\n' > "$AF/03-design.md"
+t "diseño marca GATE 2 humano"             "$(g2)" 1
+rm -f "$AF/03-design.md"
+printf '# ADR-0009\nEstado: PROPUESTO\n' > "$A/docs/adr/0009-x.md"; git -C "$A" add -A; git -C "$A" commit -qm "docs(adr): propose 0009"
+setsha
+t "ADR propuesto en el diff es humano"     "$(g2)" 1
+git -C "$A" rm -q "$A/docs/adr/0009-x.md"; mkdir -p "$A/infra"; printf 'z\n' > "$A/infra/stack.ts"
+git -C "$A" add -A; git -C "$A" commit -qm "chore(infra): touch"
+setsha
+t "ruta reservada al humano"               "$(g2)" 1
+git -C "$A" rm -q "$A/infra/stack.ts"; git -C "$A" commit -qm "chore: revert infra"
+t "sha verificado viejo es humano"         "$(g2)" 1
+setsha
+t "merge sin gate registrado pregunta"     "$(acmd 'gh pr merge 3 --squash')" ask
+t "todo en orden: gate automático"         "$(g2)" 0
+t "registro atado al HEAD"                 "$(grep -c "GATE 2 .*auto · APROBADO · sha: $(git -C "$A" rev-parse HEAD)" "$AF/gates.md")" 1
+t "merge con gate registrado pasa"         "$(acmd 'gh pr merge 3 --squash')" allow
+printf 'w\n' >> "$A/src/a.ts"; git -C "$A" commit -qam "fix(x): late change"
+t "un commit posterior invalida el gate"   "$(acmd 'gh pr merge 3 --squash')" ask
+git -C "$A" switch -q develop
+t "en la base el merge pregunta"           "$(acmd 'gh pr merge 3 --squash')" ask
+t "rebase parado en la base pregunta"      "$(acmd 'git rebase feat/x develop')" ask
+rm -rf "$A"
+
 sec "Codex · mismos hooks sin variables de Claude"
 X="$(mktemp -d "${TMPDIR:-/tmp}/sdd-codex.XXXXXX")"
 mkdir -p "$X/src" "$X/.agentic" "$X/docs/sdd/0001-alta"

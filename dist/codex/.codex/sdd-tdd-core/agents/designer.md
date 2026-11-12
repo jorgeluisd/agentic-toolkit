@@ -35,6 +35,7 @@ EVENTOS Y JOBS (eventName · payload · consumidor · outbox sí/no)
 COMPOSITION ROOT
 AMENAZAS (activo · actor · vector · mitigación · test)
 ROLLBACK / FLAG
+GATE 2: auto | humano — <disparador del AGENTS.md que aplica, o "ninguno">
 SKILLS A CARGAR EN IMPLEMENTACIÓN
 DUDAS ABIERTAS
 ```

@@ -29,6 +29,7 @@ ENFOQUES (A, B, [C]) — descripción · pros · contras · adopción · salida 
 CONDICIONES BLOQUEANTES — condición · responsable · fallback
 RECOMENDACIÓN — enfoque · razones
 ADR: no | PROPUESTO → docs/adr/ADR-NNNN-<slug>.md
+GATE 2: auto | humano — <disparador del AGENTS.md que aplica, o "ninguno">
 DECISIONES MENORES TOMADAS (reversibles)
 DUDAS ABIERTAS
 ```

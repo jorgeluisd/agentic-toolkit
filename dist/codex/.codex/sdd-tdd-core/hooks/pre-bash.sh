@@ -43,8 +43,27 @@ fi
 if printf '%s' "$lc" | grep -Eq "git[[:space:]]+push[[:space:]].*[[:space:]](origin[[:space:]]+)?(main|master|$BASE_BRANCH)([[:space:]]|:|$)"; then
   ask "GUARDRAIL GIT: push directo a una rama base (main/master/$BASE_BRANCH). El flujo es rama de feature → PR → merge humano. Aprueba solo si es un release autorizado."; exit 0
 fi
+# Merge o rebase que nombra una rama base: actualizar la rama de feature desde la base
+# (`git rebase origin/develop` parado en feat/x) es rutina y pasa. Lo que se confirma es
+# escribir SOBRE la base: estar parado en ella, o cambiarse a ella en el mismo comando.
 if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+(merge|rebase)[[:space:]]' && printf '%s' "$lc" | grep -Eq "(main|master|$BASE_BRANCH)"; then
-  ask "GUARDRAIL GIT: merge/rebase que involucra una rama base. Confirma que es lo que quieres."; exit 0
+  if on_base_branch || printf '%s' "$lc" | grep -Eq "git[[:space:]]+(checkout|switch)[[:space:]]+(main|master|$BASE_BRANCH)([[:space:]]|;|&|$)"; then
+    ask "GUARDRAIL GIT: merge/rebase sobre una rama base. Confirma que es lo que quieres."; exit 0
+  fi
+fi
+
+# 2a) Merge de PR. --admin salta la protección de rama: prohibido siempre. En modo auto
+# el merge pasa solo si el GATE 2 quedó registrado para el HEAD exacto y no se está
+# parado en la base (un release develop → main nunca es automático).
+if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$)'; then
+  if printf '%s' "$lc" | grep -Eq -- '--admin'; then
+    deny "Prohibido gh pr merge --admin: salta la protección de rama."; exit 0
+  fi
+  if [ "$AUTONOMY" = auto ] && ! on_base_branch && gate2_recorded_for_head; then
+    : # GATE 2 registrado para este sha: el merge sigue.
+  else
+    ask "GUARDRAIL MERGE: no hay un GATE 2 APROBADO registrado para el HEAD actual (o el modo es strict, o estás en la rama base). Corre gate2-auto.sh o decide el GATE 2 como humano."; exit 0
+  fi
 fi
 if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-z]*f|branch[[:space:]]+-D|checkout[[:space:]]+--[[:space:]]+\.|restore[[:space:]]+\.)'; then
   ask "GUARDRAIL GIT: comando destructivo sobre el árbol de trabajo o ramas. Confirma."; exit 0

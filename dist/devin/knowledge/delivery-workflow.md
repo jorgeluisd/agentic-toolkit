@@ -59,14 +59,15 @@ Los commits en la rama de feature son **autónomos**: no requieren pedido ni apr
 | Tarea del plan terminada con `<typecheck>`, `<lint>` y `<test>` verdes | El `implementer` commitea de inmediato en la rama de feature: un commit por tarea (scope único, mensaje de §1), con `git add <archivos explícitos>` tras revisar `git diff` |
 | Tarea a medias o rojo en alguna verificación | No se commitea; se termina la tarea o se reporta el bloqueo |
 | Cambio trivial (sin pipeline) o documentación del `archiver` | Commit directo, mismas reglas |
-| Push | Solo a la rama de feature; lo lanza el humano o lo autoriza en GATE 2 |
+| Push | Solo a la rama de feature; lo lanza el humano o lo autoriza en GATE 2. Con `SDD_AUTONOMY=auto`, el agente pushea solo cuando `gate2-auto.sh` registró el GATE 2 para el HEAD |
+| Merge hacia la rama base (modo auto) | El agente mergea si `gates.md` tiene `GATE 2 · auto · APROBADO · sha: <HEAD>`; el hook lo exige. Un release desde la base y `--admin` nunca |
 | Prohibido siempre | Push directo a `develop`/`main`; `--force` (solo `--force-with-lease` tras confirmación explícita del humano); `--no-verify`; `git commit -a` sin revisar `git diff --cached` |
 
 **Cómo se verifica:** el `settings.json` del stack deja `git add`/`git commit` en `allow` y mantiene `git push`, `gh pr create` y merges en `ask`/`deny`; los hooks del core deniegan mensajes con atribución de IA, piden confirmación para `git commit -a` y bloquean después del commit si la identidad no es la local del repo. Protección de rama en `develop`/`main` (PR obligatorio, checks requeridos, sin force-push); hooks de pre-commit (escaneo de secretos, validación de commits) nunca se saltan.
 
 ## 5. Preguntas obligatorias
 
-Nunca asumir. Preguntar literal y esperar respuesta explícita; sin ella no se crea rama, no se mergea, no se abre PR:
+Nunca asumir. Preguntar literal y esperar respuesta explícita; sin ella no se crea rama, no se mergea, no se abre PR (en modo `auto`, la pregunta 2 la responde el GATE 2 automático registrado; la 1 sigue la regla 7 de `playbook sdd`):
 
 1. Al empezar una tarea con código: **"¿Sigo en la misma rama o creo una nueva desde `develop`?"**
 2. Al terminar con tests verdes: **"¿Abro el PR?"**

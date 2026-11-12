@@ -139,6 +139,26 @@ El core lee unos pocos valores que no puede adivinar. Se pueden declarar en dos 
 | `SDD_TEST_CMD_RE` | `test_cmd_re` | multi-stack | Regex que reconoce una corrida de tests para la evidencia TDD. El default ya cubre vitest, jest, pytest, phpunit, pest, go test, cargo test, dotnet test, mvn/gradle y los comandos agregados de gate (`check`, `verify`, `validate`, `run ci`) |
 | `SDD_PROGRESS_KEEP_TASKS` | `progress_keep_tasks` | `10` | Tareas que conserva `05-apply-progress.md` antes de rotar el detalle viejo a un archivo aparte |
 | `SDD_COMMENT_MAX_BLOCK` / `SDD_COMMENT_MAX_PCT` | `comment_max_block` / `comment_max_pct` | `4` / `15` | Límite de comentarios en código fuente. Tests, migraciones, configs y `scripts/` quedan exentos |
+| `SDD_AUTONOMY` | `autonomy` | `strict` | `strict`: push, PR y merge los decide el humano en GATE 2. `auto`: GATE 2 automático cuando la máquina puede decidirlo ([ver abajo](#autonomía-gate-2-automático)) |
+| `SDD_HUMAN_PATHS` | `human_paths` | vacío | Regex sobre las rutas del diff que, en modo `auto`, fuerzan el GATE 2 humano (p. ej. `^infra/\|migrations/`) |
+
+### Autonomía: GATE 2 automático
+
+Con `SDD_AUTONOMY=auto` el humano deja de aprobar push, PR y merge de cada feature y se queda solo con las decisiones que una máquina no puede tomar. Después del verifier, el code-reviewer y el security-reviewer, el orquestador corre `hooks/gate2-auto.sh`, que exige:
+
+- `06-verify.md` en PASS **sobre el HEAD actual**, `07-review.md` `APROBADO` y, si corrió, `07-security.md` sin críticos ni altos y con riesgo residual `aceptable`;
+- GATE 1 aprobado (nivel `full`);
+- ningún ADR `PROPUESTO` en el diff, ninguna ruta de `SDD_HUMAN_PATHS`, y ningún artefacto con `GATE 2: humano` (el `proposer` y el `designer` lo escriben cuando aplica un disparador que el proyecto declara en su documento de contexto).
+
+Si todo pasa registra `GATE 2 · auto · APROBADO · sha: <HEAD>` en `gates.md`, y el agente pushea, abre el PR y mergea hacia la rama base. El hook `pre-bash` solo deja pasar `gh pr merge` con ese registro para el HEAD actual, así que un commit posterior lo invalida; `--admin` está prohibido siempre y un merge parado en la rama base (un release `develop → main`) nunca es automático. Si algo falla, el GATE 2 es humano y el agente muestra los motivos.
+
+Las plantillas de `settings.json` traen el modo `strict`. Para `auto`, en el `settings.json` del repo:
+
+- mover `Bash(git push:*)` y `Bash(gh pr create:*)` de `ask` a `allow`;
+- quitar `Bash(gh pr merge:*)` de `deny` y ponerlo en `allow` (el hook es el que decide);
+- mantener `deny` para `--force`, `--no-verify` y lo demás.
+
+Acompañalo con protección de rama en `develop` y `main` (CI obligatorio, sin force push, aplicada también a administradores): el gate automático decide sobre artefactos locales; la protección es lo que el servidor garantiza.
 
 ---
 
@@ -208,7 +228,7 @@ Miran el **código** del comando, no el dato: el cuerpo de un heredoc se escribe
 
 Lo que **deniegan** (`deny`, el agente no puede insistir):
 
-- `git push --force`, `--no-verify`, y mensajes de commit con atribución de IA.
+- `git push --force`, `--no-verify`, `gh pr merge --admin`, y mensajes de commit con atribución de IA.
 - Leer o editar `.env*` (solo `.env.example`).
 - Escribir secretos o datos personales no sintéticos en artefactos, docs, fixtures y tests.
 - Filtrar la salida de una corrida de tests con `| tail`/`| grep` — rompe la evidencia TDD.
@@ -216,7 +236,7 @@ Lo que **deniegan** (`deny`, el agente no puede insistir):
 - Migraciones destructivas, `SET NOT NULL` sin default, tabla con tenant sin `FORCE ROW LEVEL SECURITY`, `SECURITY DEFINER` sin `search_path`, `GRANT` a `anon`/`PUBLIC`.
 - Exceso de comentarios en código fuente.
 
-Lo que **pide confirmación humana** (`ask`): comandos que parecen dirigidos a producción, push directo a la rama base, merge/rebase sobre ramas base, `git commit -a`, `rm -rf` amplio, y lectura de dumps o archivos de credenciales.
+Lo que **pide confirmación humana** (`ask`): comandos que parecen dirigidos a producción, push directo a la rama base, merge/rebase **sobre** una rama base (actualizar la feature con `git rebase origin/develop` pasa), `gh pr merge` sin GATE 2 registrado para el HEAD, `git commit -a`, `rm -rf` amplio, y lectura de dumps o archivos de credenciales.
 
 **Lo que no ven.** Son regex: los secretos se detectan en cinco formas (`sk-`, JWT, `postgres://user:pass@`, `AKIA`, claves privadas PEM) y los datos personales solo como emails no sintéticos y teléfonos en formato internacional. Quedan fuera los tokens de GitHub o Slack, las API keys genéricas, los documentos nacionales y los teléfonos locales. El detalle completo del borde está en la [referencia del core](plugins/sdd-tdd-core/README.md#límites-conocidos-de-los-detectores) — vale leerlo antes de confiarles material sensible.
 

@@ -22,7 +22,7 @@
 # Claves que el archivo del proyecto puede definir. Se guarda lo que traía el
 # entorno para que una re-resolución recargue desde cero: si no, el repositorio B
 # hereda las claves que el archivo de A definió y B no.
-SDD_KEYS="SDD_PROD_MARKERS SDD_BASE_BRANCH SDD_TENANT_FIELD SDD_ARTIFACT_STORE SDD_ARTIFACTS_DIR SDD_PROGRESS_KEEP_TASKS SDD_COMMENT_MAX_BLOCK SDD_COMMENT_MAX_PCT SDD_TEST_CMD_RE"
+SDD_KEYS="SDD_PROD_MARKERS SDD_BASE_BRANCH SDD_TENANT_FIELD SDD_ARTIFACT_STORE SDD_ARTIFACTS_DIR SDD_PROGRESS_KEEP_TASKS SDD_COMMENT_MAX_BLOCK SDD_COMMENT_MAX_PCT SDD_TEST_CMD_RE SDD_AUTONOMY SDD_HUMAN_PATHS"
 for _k in $SDD_KEYS; do eval "_sdd_env_$_k=\${$_k:-}"; done
 
 # _sdd_env_file <raíz>: ruta del archivo de configuración del repositorio, en orden
@@ -123,6 +123,13 @@ _sdd_configure() {
 |composer[[:space:]]+test|phpstan|pytest|python[[:space:]]+-m[[:space:]]+(pytest|unittest)\
 |mypy|go[[:space:]]+test|cargo[[:space:]]+test|dotnet[[:space:]]+test\
 |mvn[[:space:]]+(test|verify)|gradle[[:space:]]+test|swift[[:space:]]+test|xcodebuild[[:space:]]+test)"
+  # Autonomía de entrega: strict (default) deja push, PR y merge en manos del humano;
+  # auto deja que el agente pushee, abra el PR y mergee hacia la rama base cuando el
+  # GATE 2 automático quedó registrado para el HEAD exacto (gate2-auto.sh).
+  AUTONOMY="${SDD_AUTONOMY:-${CLAUDE_PLUGIN_OPTION_AUTONOMY:-strict}}"
+  case "$AUTONOMY" in strict|auto) ;; *) AUTONOMY=strict ;; esac
+  # Rutas (regex grep -E) que, si el diff las toca, fuerzan el GATE 2 humano.
+  HUMAN_PATHS="${SDD_HUMAN_PATHS:-${CLAUDE_PLUGIN_OPTION_HUMAN_PATHS:-}}"
   # Gestor de paquetes JS del proyecto (guardrail npm/yarn): solo si hay pnpm-lock.yaml.
   PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
   return 0
@@ -287,6 +294,24 @@ active_feature() {
 worktree_origin() {
   sdd_worktree
   [ -n "$WORKTREE_DIR" ] && printf 'wt=%s branch=%s' "$WORKTREE_DIR" "$WORKTREE_BRANCH"
+}
+
+# on_base_branch: el worktree está parado en la rama base (o main/master).
+on_base_branch() {
+  sdd_worktree
+  case "$WORKTREE_BRANCH" in main|master|"$BASE_BRANCH") return 0 ;; esac
+  return 1
+}
+
+# gate2_recorded_for_head: la feature activa tiene un GATE 2 APROBADO registrado para
+# el HEAD actual. Un gate aprueba un sha concreto: un commit posterior lo invalida.
+gate2_recorded_for_head() {
+  local f head g
+  f="$(active_feature)" || return 1
+  g="$ARTIFACTS_ROOT/$f/gates.md"
+  [ -f "$g" ] || return 1
+  head="$(git -C "${WORKTREE_DIR:-$PROJECT_DIR}" rev-parse HEAD 2>/dev/null)" || return 1
+  grep -E '^GATE 2 .*APROBADO' "$g" | grep -q "sha: $head"
 }
 
 # hook_debug <mensaje>: traza opcional, solo con SDD_HOOKS_DEBUG=1. Para lo que no

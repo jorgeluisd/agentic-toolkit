@@ -8,6 +8,9 @@
 - `07-security.md` (si corrió): sin hallazgos críticos/altos sin mitigación.
 - PR abierto con `/pr-draft` (título + 3 secciones: qué cambia, por qué, verificación).
 
+## Modo auto (`SDD_AUTONOMY=auto`)
+El orquestador corre `gate2-auto.sh`. Si sale 0, el gate quedó registrado para el HEAD exacto y no hay parada humana: push, PR y merge hacia la rama base siguen solos. Si sale 1, sus motivos encabezan este checklist y decide el humano. Las preguntas de abajo son las que el modo auto da por respondidas solo cuando ningún artefacto marca `GATE 2: humano`, no hay ADR propuesto, no hay riesgo residual a decidir y el diff no toca rutas reservadas.
+
 ## Lo que el humano juzga
 - [ ] **Alcance**: el diff corresponde a lo aprobado en GATE 1. Las desviaciones justificadas en el apply-progress son aceptables.
 - [ ] **Producto**: lo construido resuelve el objetivo tal como lo entendí al aprobar la spec; los `AC-n` demostrados son los que importan.
