@@ -91,7 +91,9 @@ if [ -n "$reasons" ]; then
 fi
 
 sec="no corrió"; [ -f "$s" ] && sec="sin críticos/altos, riesgo aceptable"
-printf 'GATE 2 · %s · auto · APROBADO · sha: %s · base: %s · verify PASS · review APROBADO · security %s · sin ADR propuesto · sin rutas humanas\n' \
-  "$(date +%Y-%m-%d)" "$head" "$BASE_BRANCH" "$sec" >> "$dir/gates.md"
+# Contrato: la primera línea es exactamente `GATE 2 · auto · sha: <sha de 40>`, que es lo
+# que leen el hook y los scripts de merge de los proyectos; el detalle va en la siguiente.
+printf 'GATE 2 · auto · sha: %s\n  %s · APROBADO · base: %s · verify PASS · review APROBADO · security %s · sin ADR propuesto · sin rutas humanas\n' \
+  "$head" "$(date +%Y-%m-%d)" "$BASE_BRANCH" "$sec" >> "$dir/gates.md"
 echo "GATE 2 automático registrado para $head en $feature/gates.md."
 exit 0

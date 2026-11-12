@@ -784,8 +784,10 @@ t "sha verificado viejo es humano"         "$(g2)" 1
 setsha
 t "merge sin gate registrado pregunta"     "$(acmd 'gh pr merge 3 --squash')" ask
 t "todo en orden: gate automático"         "$(g2)" 0
-t "registro atado al HEAD"                 "$(grep -c "GATE 2 .*auto · APROBADO · sha: $(git -C "$A" rev-parse HEAD)" "$AF/gates.md")" 1
+t "registro con la línea del contrato"     "$(grep -cx "GATE 2 · auto · sha: $(git -C "$A" rev-parse HEAD)" "$AF/gates.md")" 1
 t "merge con gate registrado pasa"         "$(acmd 'gh pr merge 3 --squash')" allow
+git -C "$A" add -A; git -C "$A" commit -qm "docs(sdd): record gate 2"
+t "versionar gates.md no invalida el gate" "$(acmd 'gh pr merge 3 --squash')" allow
 printf 'w\n' >> "$A/src/a.ts"; git -C "$A" commit -qam "fix(x): late change"
 t "un commit posterior invalida el gate"   "$(acmd 'gh pr merge 3 --squash')" ask
 git -C "$A" switch -q develop
