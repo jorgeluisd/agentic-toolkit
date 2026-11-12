@@ -27,5 +27,5 @@ Prohibido en el PR: referencias a otros PR, nombres de personas, ADRs, análisis
 
 Pasos:
 1. Muestra el título y el cuerpo completos.
-2. Pregunta: "¿Abro el PR contra `<rama base>`?" y **espera la respuesta**. Con `SDD_AUTONOMY=auto` y un GATE 2 automático registrado para el HEAD actual en `gates.md`, no preguntas: lo abres.
+2. Pregunta: "¿Abro el PR contra `<rama base>`?" y **espera la respuesta**. Con `SDD_AUTONOMY=auto` y un `GATE 2 · auto · sha:` que cubre el HEAD actual en `gates.md`, no preguntas: lo abres.
 3. Solo con confirmación: `gh pr create --base <rama base> --title "<título>" --body "$(cat <<'EOF' … EOF)"`. Nunca `--web` sin pedirlo, nunca merge.

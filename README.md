@@ -150,7 +150,7 @@ Con `SDD_AUTONOMY=auto` el humano deja de aprobar push, PR y merge de cada featu
 - GATE 1 aprobado (nivel `full`);
 - ningún ADR `PROPUESTO` en el diff, ninguna ruta de `SDD_HUMAN_PATHS`, y ningún artefacto con `GATE 2: humano` (el `proposer` y el `designer` lo escriben cuando aplica un disparador que el proyecto declara en su documento de contexto).
 
-Si todo pasa registra `GATE 2 · auto · APROBADO · sha: <HEAD>` en `gates.md`, y el agente pushea, abre el PR y mergea hacia la rama base. El hook `pre-bash` solo deja pasar `gh pr merge` con ese registro para el HEAD actual, así que un commit posterior lo invalida; `--admin` está prohibido siempre y un merge parado en la rama base (un release `develop → main`) nunca es automático. Si algo falla, el GATE 2 es humano y el agente muestra los motivos.
+Si todo pasa registra la línea exacta `GATE 2 · auto · sha: <HEAD>` en `gates.md` (el contrato que leen el hook y los scripts de merge de cada proyecto), y el agente pushea, abre el PR y mergea hacia la rama base. El hook `pre-bash` solo deja pasar `gh pr merge` con ese registro para el HEAD actual, así que un commit posterior lo invalida salvo que solo toque la raíz de artefactos (versionar el propio `gates.md`); `--admin` está prohibido siempre y un merge parado en la rama base (un release `develop → main`) nunca es automático. Si algo falla, el GATE 2 es humano y el agente muestra los motivos.
 
 Las plantillas de `settings.json` traen el modo `strict`. Para `auto`, en el `settings.json` del repo:
 

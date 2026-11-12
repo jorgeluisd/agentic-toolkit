@@ -303,15 +303,24 @@ on_base_branch() {
   return 1
 }
 
-# gate2_recorded_for_head: la feature activa tiene un GATE 2 APROBADO registrado para
-# el HEAD actual. Un gate aprueba un sha concreto: un commit posterior lo invalida.
+# gate2_recorded_for_head: la feature activa tiene un `GATE 2 · auto · sha: <sha>` que
+# cubre el HEAD actual. Un gate aprueba un sha concreto: vale para ese sha o para
+# commits posteriores que solo tocan la raíz de artefactos (el commit que versiona el
+# propio gates.md, el cierre del archiver). Cualquier otro commit lo invalida.
 gate2_recorded_for_head() {
-  local f head g
+  local f head g wt sha rel changed
   f="$(active_feature)" || return 1
   g="$ARTIFACTS_ROOT/$f/gates.md"
   [ -f "$g" ] || return 1
-  head="$(git -C "${WORKTREE_DIR:-$PROJECT_DIR}" rev-parse HEAD 2>/dev/null)" || return 1
-  grep -E '^GATE 2 .*APROBADO' "$g" | grep -q "sha: $head"
+  wt="${WORKTREE_DIR:-$PROJECT_DIR}"
+  head="$(git -C "$wt" rev-parse HEAD 2>/dev/null)" || return 1
+  sha="$(sed -nE 's/^GATE 2 · auto · sha: ([0-9a-f]{40})$/\1/p' "$g" | tail -n 1)"
+  [ -n "$sha" ] || return 1
+  [ "$sha" = "$head" ] && return 0
+  case "$ARTIFACTS_ROOT" in "$wt"/*) rel="${ARTIFACTS_ROOT#"$wt"/}/" ;; *) return 1 ;; esac
+  git -C "$wt" merge-base --is-ancestor "$sha" "$head" 2>/dev/null || return 1
+  changed="$(git -C "$wt" diff --name-only "$sha" "$head" 2>/dev/null)" || return 1
+  [ -z "$(printf '%s\n' "$changed" | grep -v '^$' | grep -v "^$rel")" ]
 }
 
 # hook_debug <mensaje>: traza opcional, solo con SDD_HOOKS_DEBUG=1. Para lo que no
