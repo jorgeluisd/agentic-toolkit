@@ -543,4 +543,7 @@ AI_TRAILER_RE='co-authored-by|claude-session|devin-session|generated with|anthro
 SECRET_RE='(sk-[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{10,}|postgres(ql)?://[^[:space:]]+:[^[:space:]@]+@|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)'
 EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 PHONE_RE='\+[0-9]{8,15}'
+# Teléfonos sintéticos (los que sugieren los propios mensajes, p. ej. +10000000001):
+# seis ceros seguidos o más. Se descartan antes de marcar PII.
+SYNTH_PHONE_RE='0{6,}'
 EXAMPLE_EMAIL_RE='@(example\.(com|org|net)|test\.local|localhost)'
