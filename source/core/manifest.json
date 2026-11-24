@@ -1,7 +1,7 @@
 {
   "name": "sdd-tdd-core",
   "displayName": "SDD/TDD Core",
-  "version": "2.5.2",
+  "version": "2.6.0",
   "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript, stack-go u otro) que aporte las skills tecnicas.",
   "author": {
     "name": "Jorge Diaz",
@@ -134,6 +134,16 @@
       "title": "Rutas que fuerzan GATE 2 humano (regex)",
       "default": "",
       "description": "Expresion regular extendida sobre las rutas del diff. Si el diff toca alguna, el GATE 2 automatico no se registra y decide un humano (p. ej. ^infra/|migrations/). Vacio = ninguna."
+    },
+    "docs_auto_paths": {
+      "title": "Rutas de documentacion con merge automatico (regex)",
+      "default": "",
+      "description": "En modo auto, un PR cuyo diff solo toca rutas que matchean esta regex (p. ej. ^docs/) se mergea sin GATE 2 ni SDD. Vacio = desactivado."
+    },
+    "docs_human_paths": {
+      "title": "Rutas de documentacion que siguen siendo humanas (regex)",
+      "default": "(^|/)adrs?/",
+      "description": "Dentro de la documentacion, rutas que nunca se mergean solas: ADR, pricing, legales. Default: carpetas adr/ o adrs/."
     }
   },
   "fileTargets": {

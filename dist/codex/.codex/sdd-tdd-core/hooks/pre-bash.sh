@@ -61,6 +61,8 @@ if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])gh[[:space:]]+pr[[:space:]]+m
   fi
   if [ "$AUTONOMY" = auto ] && ! on_base_branch && gate2_recorded_for_head; then
     : # GATE 2 registrado para este sha: el merge sigue.
+  elif [ "$AUTONOMY" = auto ] && ! on_base_branch && docs_only_diff; then
+    : # PR que solo toca documentación permitida (SDD_DOCS_AUTO_PATHS): el merge sigue.
   else
     ask "GUARDRAIL MERGE: no hay un GATE 2 APROBADO registrado para el HEAD actual (o el modo es strict, o estás en la rama base). Corre gate2-auto.sh o decide el GATE 2 como humano."; exit 0
   fi
