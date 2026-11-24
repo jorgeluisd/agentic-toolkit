@@ -21,7 +21,7 @@ if printf '%s' "$rel" | grep -Eq '^docs/|/docs/|fixtures?/|seeds?/|\.(spec|test|
   emails="$(grep -EoI "$EMAIL_RE" "$path" 2>/dev/null | grep -Ev "$EXAMPLE_EMAIL_RE" | sort -u | head -n 3)"
   [ -n "$emails" ] && problems="$problems
 - Emails que no parecen sintéticos en $rel: $(printf '%s' "$emails" | tr '\n' ' '). Usa dominios example.com/test.local."
-  phones="$(grep -EoI "$PHONE_RE" "$path" 2>/dev/null | sort -u | head -n 3)"
+  phones="$(grep -EoI "$PHONE_RE" "$path" 2>/dev/null | grep -Ev "$SYNTH_PHONE_RE" | sort -u | head -n 3)"
   [ -n "$phones" ] && problems="$problems
 - Teléfonos en formato internacional en $rel: $(printf '%s' "$phones" | tr '\n' ' '). Si son reales, reemplázalos por números sintéticos (por ejemplo +10000000001)."
 fi

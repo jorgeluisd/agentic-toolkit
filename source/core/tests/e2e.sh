@@ -345,8 +345,13 @@ sec "Guardrails de escritura"
 t "secreto en código"                      "$(wr "$R/src/cfg.ts" 'const k = "sk-abcdefghijklmnopqrstuvwx";')" deny
 t "email real en artefacto"                "$(wr "$F/02-spec.md" 'contacto: juan.perez@empresa-real.com')"    deny
 t "email sintético en artefacto"           "$(wr "$F/02-spec.md" 'contacto: user@example.com')"               allow
+t "teléfono real en artefacto"             "$(wr "$F/02-spec.md" 'contacto: +5491123456789')"                 deny
+t "teléfono sintético que sugiere el hook"  "$(wr "$F/02-spec.md" 'contacto: +10000000001')"                   allow
+t "teléfono sintético con ceros (AR)"       "$(wr "$F/02-spec.md" 'contacto: +5491100000000')"                 allow
 t "código limpio"                          "$(wr "$R/src/order.ts" 'export const create = () => 1;')"         allow
 t "lectura de .env"                        "$(rd "$R/.env")"                                                  deny
+t "cat de la config de hooks no es secreto" "$(cmd 'cat .claude/sdd-hooks.env')"                               allow
+t "cat de un .env sigue prohibido"          "$(cmd 'cat apps/api/.env')"                                        deny
 
 sec "Guardrails de shell y git"
 t "commit con atribución de IA"            "$(cmd 'git commit -m "x" -m "Co-Authored-By: a <b@c.d>"')"  deny

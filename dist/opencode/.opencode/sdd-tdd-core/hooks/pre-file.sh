@@ -44,7 +44,7 @@ if printf '%s' "$rel" | grep -Eq '^docs/|/docs/|fixtures?/|seeds?/|\.(spec|test|
   emails="$(printf '%s' "$content" | grep -EoI "$EMAIL_RE" | grep -Ev "$EXAMPLE_EMAIL_RE" | sort -u | head -n 3)"
   [ -n "$emails" ] && problems="$problems
 - Emails que no parecen sintéticos destinados a $rel: $(printf '%s' "$emails" | tr '\n' ' '). Usa dominios example.com/test.local."
-  phones="$(printf '%s' "$content" | grep -EoI "$PHONE_RE" | sort -u | head -n 3)"
+  phones="$(printf '%s' "$content" | grep -EoI "$PHONE_RE" | grep -Ev "$SYNTH_PHONE_RE" | sort -u | head -n 3)"
   [ -n "$phones" ] && problems="$problems
 - Teléfonos en formato internacional destinados a $rel: $(printf '%s' "$phones" | tr '\n' ' '). Si son reales, reemplázalos por sintéticos (+10000000001)."
 fi

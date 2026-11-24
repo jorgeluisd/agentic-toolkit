@@ -90,7 +90,7 @@ fi
 if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]+-[a-z]*r[a-z]*f?[[:space:]]+(/|~|\$home|\.\.|\*)'; then
   ask "rm -rf sobre una ruta amplia. Confirma."; exit 0
 fi
-if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])(cat|less|more|head|tail|bat|code|vim|nano|open)[[:space:]].*\.env($|\.[a-z.]+)' && ! printf '%s' "$lc" | grep -q '\.env\.example'; then
+if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|])(cat|less|more|head|tail|bat|code|vim|nano|open)[[:space:]].*\.env($|\.[a-z.]+)' && ! printf '%s' "$lc" | grep -Eq '\.env\.example|sdd-hooks\.env'; then
   deny "Prohibido leer archivos .env* (solo .env.example). Los secretos no entran al contexto del agente."; exit 0
 fi
 
