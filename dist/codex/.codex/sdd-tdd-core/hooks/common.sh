@@ -22,7 +22,7 @@
 # Claves que el archivo del proyecto puede definir. Se guarda lo que traía el
 # entorno para que una re-resolución recargue desde cero: si no, el repositorio B
 # hereda las claves que el archivo de A definió y B no.
-SDD_KEYS="SDD_PROD_MARKERS SDD_BASE_BRANCH SDD_TENANT_FIELD SDD_ARTIFACT_STORE SDD_ARTIFACTS_DIR SDD_PROGRESS_KEEP_TASKS SDD_COMMENT_MAX_BLOCK SDD_COMMENT_MAX_PCT SDD_TEST_CMD_RE SDD_AUTONOMY SDD_HUMAN_PATHS"
+SDD_KEYS="SDD_PROD_MARKERS SDD_BASE_BRANCH SDD_TENANT_FIELD SDD_ARTIFACT_STORE SDD_ARTIFACTS_DIR SDD_PROGRESS_KEEP_TASKS SDD_COMMENT_MAX_BLOCK SDD_COMMENT_MAX_PCT SDD_TEST_CMD_RE SDD_AUTONOMY SDD_HUMAN_PATHS SDD_DOCS_AUTO_PATHS SDD_DOCS_HUMAN_PATHS"
 for _k in $SDD_KEYS; do eval "_sdd_env_$_k=\${$_k:-}"; done
 
 # _sdd_env_file <raíz>: ruta del archivo de configuración del repositorio, en orden
@@ -130,6 +130,11 @@ _sdd_configure() {
   case "$AUTONOMY" in strict|auto) ;; *) AUTONOMY=strict ;; esac
   # Rutas (regex grep -E) que, si el diff las toca, fuerzan el GATE 2 humano.
   HUMAN_PATHS="${SDD_HUMAN_PATHS:-${CLAUDE_PLUGIN_OPTION_HUMAN_PATHS:-}}"
+  # Merge automático de PR que solo tocan documentación (modo auto): regex de rutas
+  # que cuentan como docs (vacío = desactivado) y regex de rutas de docs que siguen
+  # siendo decisión humana (ADR, pricing, legales...).
+  DOCS_AUTO_PATHS="${SDD_DOCS_AUTO_PATHS:-${CLAUDE_PLUGIN_OPTION_DOCS_AUTO_PATHS:-}}"
+  DOCS_HUMAN_PATHS="${SDD_DOCS_HUMAN_PATHS:-${CLAUDE_PLUGIN_OPTION_DOCS_HUMAN_PATHS:-(^|/)adrs?/}}"
   # Gestor de paquetes JS del proyecto (guardrail npm/yarn): solo si hay pnpm-lock.yaml.
   PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
   return 0
@@ -301,6 +306,22 @@ on_base_branch() {
   sdd_worktree
   case "$WORKTREE_BRANCH" in main|master|"$BASE_BRANCH") return 0 ;; esac
   return 1
+}
+
+# docs_only_diff: el diff contra la rama base no está vacío, todos sus archivos caen
+# en SDD_DOCS_AUTO_PATHS y ninguno en SDD_DOCS_HUMAN_PATHS ni en SDD_HUMAN_PATHS.
+docs_only_diff() {
+  local wt base files
+  [ -n "$DOCS_AUTO_PATHS" ] || return 1
+  wt="${WORKTREE_DIR:-$PROJECT_DIR}"
+  base="$BASE_BRANCH"
+  git -C "$wt" rev-parse -q --verify "origin/$BASE_BRANCH" >/dev/null && base="origin/$BASE_BRANCH"
+  files="$(git -C "$wt" diff --name-only "$base"...HEAD 2>/dev/null)" || return 1
+  [ -n "$files" ] || return 1
+  printf '%s\n' "$files" | grep -Ev "$DOCS_AUTO_PATHS" | grep -q . && return 1
+  printf '%s\n' "$files" | grep -Eq "$DOCS_HUMAN_PATHS" && return 1
+  [ -n "$HUMAN_PATHS" ] && printf '%s\n' "$files" | grep -Eq "$HUMAN_PATHS" && return 1
+  return 0
 }
 
 # gate2_recorded_for_head: la feature activa tiene un `GATE 2 · auto · sha: <sha>` que

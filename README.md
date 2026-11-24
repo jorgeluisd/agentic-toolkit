@@ -141,6 +141,8 @@ El core lee unos pocos valores que no puede adivinar. Se pueden declarar en dos 
 | `SDD_COMMENT_MAX_BLOCK` / `SDD_COMMENT_MAX_PCT` | `comment_max_block` / `comment_max_pct` | `4` / `15` | Límite de comentarios en código fuente. Tests, migraciones, configs y `scripts/` quedan exentos |
 | `SDD_AUTONOMY` | `autonomy` | `strict` | `strict`: push, PR y merge los decide el humano en GATE 2. `auto`: GATE 2 automático cuando la máquina puede decidirlo ([ver abajo](#autonomía-gate-2-automático)) |
 | `SDD_HUMAN_PATHS` | `human_paths` | vacío | Regex sobre las rutas del diff que, en modo `auto`, fuerzan el GATE 2 humano (p. ej. `^infra/\|migrations/`) |
+| `SDD_DOCS_AUTO_PATHS` | `docs_auto_paths` | vacío | En modo `auto`, regex de rutas de documentación: un PR cuyo diff solo toca esas rutas se mergea sin GATE 2 ni SDD (p. ej. `^docs/`). Vacío = desactivado |
+| `SDD_DOCS_HUMAN_PATHS` | `docs_human_paths` | `(^|/)adrs?/` | Rutas de documentación que siguen siendo decisión humana aunque estén en `SDD_DOCS_AUTO_PATHS` (ADR, pricing, legales) |
 
 ### Autonomía: GATE 2 automático
 
@@ -151,6 +153,8 @@ Con `SDD_AUTONOMY=auto` el humano deja de aprobar push, PR y merge de cada featu
 - ningún ADR `PROPUESTO` en el diff, ninguna ruta de `SDD_HUMAN_PATHS`, y ningún artefacto con `GATE 2: humano` (el `proposer` y el `designer` lo escriben cuando aplica un disparador que el proyecto declara en su documento de contexto).
 
 Si todo pasa registra la línea exacta `GATE 2 · auto · sha: <HEAD>` en `gates.md` (el contrato que leen el hook y los scripts de merge de cada proyecto), y el agente pushea, abre el PR y mergea hacia la rama base. El hook `pre-bash` solo deja pasar `gh pr merge` con ese registro para el HEAD actual, así que un commit posterior lo invalida salvo que solo toque la raíz de artefactos (versionar el propio `gates.md`); `--admin` está prohibido siempre y un merge parado en la rama base (un release `develop → main`) nunca es automático. Si algo falla, el GATE 2 es humano y el agente muestra los motivos.
+
+**PR solo de documentación.** Con `SDD_DOCS_AUTO_PATHS` configurado (p. ej. `^docs/`), un PR cuyo diff contra la rama base solo toca esas rutas —cierres de SDD, backlog, handoffs, runbooks— se mergea sin GATE 2 ni SDD. Si un solo archivo cae fuera de esas rutas, en `SDD_DOCS_HUMAN_PATHS` (por defecto, cualquier carpeta `adr/`) o en `SDD_HUMAN_PATHS`, vuelve a decidir un humano. No se escanean disparadores: en la documentación se nombran todo el tiempo y no ejecutan nada.
 
 Las plantillas de `settings.json` traen el modo `strict`. Para `auto`, en el `settings.json` del repo:
 

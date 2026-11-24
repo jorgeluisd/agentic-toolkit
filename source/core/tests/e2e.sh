@@ -800,6 +800,32 @@ t "en la base el merge pregunta"           "$(acmd 'gh pr merge 3 --squash')" as
 t "rebase parado en la base pregunta"      "$(acmd 'git rebase feat/x develop')" ask
 rm -rf "$A"
 
+sec "Autonomía · merge automático de PR solo de documentación"
+D="$(mktemp -d "${TMPDIR:-/tmp}/sdd-docs.XXXXXX")"
+git -C "$D" init -q -b develop .
+git -C "$D" config --local user.name "Dev Prueba"; git -C "$D" config --local user.email "dev@example.com"
+mkdir -p "$D/.agentic" "$D/docs/adr" "$D/src"
+printf 'SDD_BASE_BRANCH=develop\nSDD_AUTONOMY=auto\nSDD_DOCS_AUTO_PATHS=^docs/\nSDD_DOCS_HUMAN_PATHS='"'"'(^|/)adrs?/|^docs/PRICING\\.md$'"'"'\n' > "$D/.agentic/sdd-hooks.env"
+printf 'x\n' > "$D/src/a.ts"; printf 'r\n' > "$D/docs/README.md"; git -C "$D" add -A; git -C "$D" commit -qm "chore: init"
+dcmd(){ local o; o="$(printf '%s' "$(jq -nc --arg c "$1" --arg d "$D" '{tool_name:"Bash",cwd:$d,tool_input:{command:$c}}')" \
+  | env -u SDD_AUTONOMY -u SDD_BASE_BRANCH -u SDD_DOCS_AUTO_PATHS -u SDD_DOCS_HUMAN_PATHS CLAUDE_PROJECT_DIR="$D" bash "$HOOKS/pre-bash.sh" 2>/dev/null)"
+  if [ -z "$o" ]; then echo allow; else printf '%s' "$o" | jq -r '.hookSpecificOutput.permissionDecision'; fi; }
+git -C "$D" switch -qc docs/x
+printf 'nota\n' >> "$D/docs/README.md"; git -C "$D" commit -qam "docs: note"
+t "PR solo de docs se mergea solo"          "$(dcmd 'gh pr merge 9 --squash')" allow
+printf 'p\n' > "$D/docs/PRICING.md"; git -C "$D" add -A; git -C "$D" commit -qm "docs: pricing"
+t "docs con pricing pide humano"            "$(dcmd 'gh pr merge 9 --squash')" ask
+git -C "$D" rm -q "$D/docs/PRICING.md"; printf 'a\n' > "$D/docs/adr/0001-x.md"; git -C "$D" add -A; git -C "$D" commit -qm "docs: adr"
+t "docs con un ADR pide humano"             "$(dcmd 'gh pr merge 9 --squash')" ask
+git -C "$D" rm -q "$D/docs/adr/0001-x.md"; printf 'y\n' >> "$D/src/a.ts"; git -C "$D" commit -qam "fix: code"
+t "docs más código pide humano"             "$(dcmd 'gh pr merge 9 --squash')" ask
+git -C "$D" switch -q develop
+t "parado en la base pide humano"           "$(dcmd 'gh pr merge 9 --squash')" ask
+sed -i.bak 's/^SDD_AUTONOMY=auto/SDD_AUTONOMY=strict/' "$D/.agentic/sdd-hooks.env"; git -C "$D" switch -qc docs/y
+printf 'otra\n' >> "$D/docs/README.md"; git -C "$D" commit -qam "docs: other"
+t "en strict el PR de docs pide humano"     "$(dcmd 'gh pr merge 9 --squash')" ask
+rm -rf "$D"
+
 sec "Codex · mismos hooks sin variables de Claude"
 X="$(mktemp -d "${TMPDIR:-/tmp}/sdd-codex.XXXXXX")"
 mkdir -p "$X/src" "$X/.agentic" "$X/docs/sdd/0001-alta"
