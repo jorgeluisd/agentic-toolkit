@@ -5,11 +5,11 @@
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
   },
-  "version": "2.6.1",
+  "version": "2.7.0",
   "plugins": [
     {
       "name": "sdd-tdd-core",
-      "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript, stack-go u otro) que aporte las skills tecnicas.",
+      "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: layout lite con un solo feature.md (explorer, proposer opcional, designer, implementer, verifier, code-reviewer, security-reviewer, archiver) o classic de 10 fases, 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript, stack-go u otro) que aporte las skills tecnicas.",
       "source": "./plugins/sdd-tdd-core",
       "category": "development"
     },

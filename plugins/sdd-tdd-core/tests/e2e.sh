@@ -341,6 +341,52 @@ t "spec-writer no pertenece al recorrido"  "$(task spec-writer)"       deny
 t "designer no pertenece al recorrido"     "$(task designer)"          deny
 printf '0001-alta-pedido\n' > "$SDD/.current"
 
+sec "Gatekeeper · layout lite (un solo feature.md)"
+taskp(){ dec pre-task.sh "$(jq -nc --arg a "$1" --arg p "$2" '{tool_name:"Task",tool_input:{subagent_type:$a,prompt:$p}}')"; }
+LF="$SDD/0003-lite"; mkdir -p "$LF"; printf '0003-lite\n' > "$SDD/.current"; printf 'full\n' > "$LF/.level"
+FM="$LF/feature.md"
+t "explorer sin L1 en el log"              "$(task explorer)"          deny
+printf '# 0003-lite\n\n## Log\nL1 2026-11-26 humano (textual): > agrega el alta de pedidos\n' > "$FM"
+t "explorer con L1"                        "$(task explorer)"          allow
+t "proposer sin exploración"               "$(task proposer)"          deny
+printf '# 0003-lite\n\n## Exploración\nexiste src/order.ts\n\n## Log\nL1 2026-11-26 humano (textual): > agrega el alta\n' > "$FM"
+t "proposer con exploración"               "$(task proposer)"          allow
+t "spec-writer no corre en lite"           "$(task spec-writer)"       deny
+t "task-planner no corre en lite"          "$(task task-planner)"      deny
+t "designer con exploración"               "$(task designer)"          allow
+t "implementer sin specs ni tasks"         "$(taskp implementer 'Haz T1')" deny
+cat > "$FM" <<'MD'
+# 0003-lite
+
+## Exploración
+existe src/order.ts
+
+## Specs
+S1. "rechaza cantidad negativa" con el error `QUANTITY_NEGATIVE`.
+
+## Diseño
+dominio: Order.create
+
+## Tasks
+- [ ] T1 (S1) · TDD ON · src/order.ts
+
+## Log
+L1 2026-11-26 humano (textual): > agrega el alta
+MD
+t "implementer sin GATE 1"                 "$(taskp implementer 'Haz T1; S1')" deny
+printf 'GATE 1 · APROBADO · token: "acepto"\n' > "$LF/gates.md"
+t "implementer sin T# en el prompt"        "$(taskp implementer 'implementa la feature')" deny
+t "implementer con referencia T# y S#"     "$(taskp implementer "Spec: $FM (lee hasta ## Log). Haz T1; S1.")" allow
+t "prompt largo es paráfrasis: deniega"    "$(taskp implementer "Haz T1. $(printf 'x%.0s' $(seq 1 2100))")" deny
+t "verifier sin apply-progress ni log"     "$(task verifier)"          deny
+printf 'RESUMEN\n' > "$LF/05-apply-progress.md"; printf 'x\n' > "$LF/tdd-evidence.log"
+t "verifier con apply-progress y log"      "$(task verifier)"          allow
+LB="$SDD/0004-lite-fix"; mkdir -p "$LB"; printf '0004-lite-fix\n' > "$SDD/.current"; printf 'bugfix\n' > "$LB/.level"
+printf '## Specs\nS1. reproduce el bug\n\n## Tasks\n- [ ] T1 (S1)\n\n## Log\nL1 humano: > falla el total\n' > "$LB/feature.md"
+t "bugfix lite: designer no corre"         "$(task designer)"          deny
+t "bugfix lite: implementer sin GATE 1"    "$(taskp implementer 'Haz T1; S1')" allow
+printf '0001-alta-pedido\n' > "$SDD/.current"
+
 sec "Guardrails de escritura"
 t "secreto en código"                      "$(wr "$R/src/cfg.ts" 'const k = "sk-abcdefghijklmnopqrstuvwx";')" deny
 t "email real en artefacto"                "$(wr "$F/02-spec.md" 'contacto: juan.perez@empresa-real.com')"    deny
@@ -373,6 +419,16 @@ t "gh pr merge --admin"                    "$(cmd 'gh pr merge 12 --admin --squa
 t "gh pr merge en modo strict"             "$(cmd 'gh pr merge 12 --squash')"                           ask
 t "salida de tests filtrada por pipe"      "$(cmd 'npm test | tail -5')"                                deny
 t "comando inocuo"                         "$(cmd 'ls -la')"                                            allow
+
+sec "Guardrails · almacenes de credenciales del usuario"
+t "leer ~/.aws/credentials"                "$(rd "$HOME/.aws/credentials")"               deny
+t "leer una clave en ~/.ssh"               "$(rd "$HOME/.ssh/id_ed25519")"                deny
+t "token de gh en config por carpeta"      "$(rd "$HOME/.config/gh-personal/hosts.yml")"  deny
+t "~/.aws/config no es credencial"         "$(rd "$HOME/.aws/config")"                    allow
+t "cat de credenciales por shell"          "$(cmd 'cat ~/.aws/credentials')"              deny
+t "copiar la caché de sesión de aws"       "$(cmd 'cp -r ~/.aws/login/cache /tmp/x')"     deny
+t "gh auth token"                          "$(cmd 'gh auth token')"                       deny
+t "gh auth status no imprime el token"     "$(cmd 'gh auth status')"                      allow
 
 sec "Guardrails · el cuerpo de un heredoc es dato, no comando"
 # Un doc que lista las acciones prohibidas no ejecuta ninguna. El guardrail miraba el
@@ -841,6 +897,61 @@ sed -i.bak 's/^SDD_AUTONOMY=auto/SDD_AUTONOMY=strict/' "$D/.agentic/sdd-hooks.en
 printf 'otra\n' >> "$D/docs/README.md"; git -C "$D" commit -qam "docs: other"
 t "en strict el PR de docs pide humano"     "$(dcmd 'gh pr merge 9 --squash')" ask
 rm -rf "$D"
+
+sec "Autonomía · layout lite, riesgo y madurez de dependencias"
+L="$(mktemp -d "${TMPDIR:-/tmp}/sdd-lite.XXXXXX")"
+git -C "$L" init -q -b develop .
+git -C "$L" config --local user.name "Dev Prueba"; git -C "$L" config --local user.email "dev@example.com"
+mkdir -p "$L/.agentic" "$L/src" "$L/test"
+printf 'SDD_BASE_BRANCH=develop\nSDD_AUTONOMY=auto\n' > "$L/.agentic/sdd-hooks.env"
+printf 'x\n' > "$L/src/a.ts"; printf 'lockfileVersion: 9.0\n' > "$L/pnpm-lock.yaml"
+git -C "$L" add -A; git -C "$L" commit -qm "chore: init"
+git -C "$L" switch -qc feat/y
+LFD="$L/docs/sdd/0001-y"; mkdir -p "$LFD"
+printf '0001-y\n' > "$(git -C "$L" rev-parse --absolute-git-dir)/sdd-current"
+printf 'full\n' > "$LFD/.level"
+printf 'y\n' > "$L/src/a.ts"; git -C "$L" commit -qam "feat(y): change"
+lg2(){ (cd "$L" && env -u SDD_AUTONOMY -u SDD_BASE_BRANCH -u SDD_HUMAN_PATHS -u SDD_HIGH_RISK_PATHS CLAUDE_PROJECT_DIR="$L" bash "$HOOKS/gate2-auto.sh" >/dev/null 2>&1; echo $?); }
+lsh(){ (cd "$L" && env -u SDD_BASE_BRANCH -u SDD_HUMAN_PATHS -u SDD_HIGH_RISK_PATHS CLAUDE_PROJECT_DIR="$L" "$@" 2>/dev/null); }
+fm(){ printf '## Specs\nS1. crea el pedido\nS2. rechaza negativos\n\n## Tasks\n- [x] T1 (S1) · %s\n%s\n\n## Log\nL1 humano: > alta\n' "$1" "$2" > "$LFD/feature.md"; }
+vf(){ printf 'RESUMEN: PASS (3 checks)\nsha verificado: %s\n| S1 | PASS |\n%s\n' "$(git -C "$L" rev-parse HEAD)" "$1" > "$LFD/06-verify.md"; }
+printf 'GATE 1 · APROBADO · token: "acepto"\n' > "$LFD/gates.md"
+printf 'RESUMEN: 0 hallazgos (0/0/0) · veredicto: APROBADO\n' > "$LFD/07-review.md"
+fm 1a2b3c4 '- [ ] T2 (S2)'; vf ''
+t "S2 sin veredicto y T2 abierta: humano"  "$(lg2)" 1
+vf '| S2 | FAIL |'; fm 1a2b3c4 '- [x] T2 (S2) · 5d6e7f8'
+t "S2 en FAIL: humano"                     "$(lg2)" 1
+vf '| S2 | PASS |'; fm 1a2b3c4 '- [x] T2 (S2) · hecho'
+t "tarea cerrada sin commit: humano"       "$(lg2)" 1
+fm 1a2b3c4 '- [x] T2 (S2) · 5d6e7f8'
+t "specs en PASS y tareas con commit"      "$(lg2)" 0
+t "riesgo medio con código de producción"  "$(lsh bash "$HOOKS/review-plan.sh" | head -1)" "RIESGO: medio"
+mkdir -p "$L/src/auth"; printf 'z\n' > "$L/src/auth/guard.ts"; git -C "$L" add src; git -C "$L" commit -qm "feat(auth): guard"
+vf '| S2 | PASS |'
+t "riesgo alto por ruta de auth"           "$(lsh bash "$HOOKS/review-plan.sh" | head -1)" "RIESGO: alto"
+t "alto sin segunda review ni security"    "$(lg2)" 1
+printf 'RESUMEN: 0 hallazgos (0/0/0) · veredicto: APROBADO\n' > "$LFD/07-review-2.md"
+printf 'RESUMEN: 0 hallazgos (0/0/0/0) · riesgo residual: aceptable\n' > "$LFD/07-security.md"
+t "alto con review doble y security"       "$(lg2)" 0
+printf 'lockfileVersion: 9.0\npackages:\n  leftpad@1.0.0:\n  '"'"'@scope/x@2.0.0'"'"':\nsnapshots:\n  react-dom@19.0.0(react@19.0.0):\n' > "$L/pnpm-lock.yaml"
+git -C "$L" commit -qam "chore(deps): add"; vf '| S2 | PASS |'
+t "lockfile sin release-age: humano"       "$(lg2)" 1
+STUB="$(mktemp "${TMPDIR:-/tmp}/sdd-stub.XXXXXX")"
+printf '#!/usr/bin/env bash\ncase "$2" in leftpad) echo $(( $(date +%%s) - 3600 ));; *) echo 1000000000;; esac\n' > "$STUB"; chmod +x "$STUB"
+ra(){ (cd "$L" && env -u SDD_BASE_BRANCH SDD_RELEASE_TIME_CMD="$STUB" CLAUDE_PROJECT_DIR="$L" bash "$HOOKS/release-age.sh" "$@" 2>/dev/null); }
+t "versión de 1 h: FAIL"                   "$(ra >/dev/null; echo $?)" 1
+t "y la nombra"                            "$(ra | grep -c 'leftpad@1.0.0')" 1
+t "lee scoped y snapshots con peers"       "$(ra | head -1 | grep -c '3 versiones')" 1
+t "con allowlist pasa"                     "$(SDD_RELEASE_AGE_ALLOW='^leftpad$' ra | head -1 | cut -c1-15)" "release-age: OK"
+vf "| S2 | PASS |
+release-age: OK (3 versiones nuevas)"
+t "lockfile con release-age OK"            "$(lg2)" 0
+git -C "$L" switch -q develop
+t "sin lockfile en el diff: N/A"           "$(ra | cut -c1-17)" "release-age: N/A "
+git -C "$L" switch -q feat/y
+printf 'x\n' > "$L/test/a.test.ts"; git -C "$L" switch -qc feat/z develop; git -C "$L" add test; git -C "$L" commit -qm "test: add"
+t "solo tests: riesgo bajo"                "$(lsh bash "$HOOKS/review-plan.sh" | head -1)" "RIESGO: bajo"
+rm -rf "$L" "$STUB"
 
 sec "Codex · mismos hooks sin variables de Claude"
 X="$(mktemp -d "${TMPDIR:-/tmp}/sdd-codex.XXXXXX")"

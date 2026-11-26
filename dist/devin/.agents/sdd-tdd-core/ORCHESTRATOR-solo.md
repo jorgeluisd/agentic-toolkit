@@ -11,7 +11,7 @@ Un subagente aporta dos cosas que una sesión única no tiene gratis: **contexto
 | Se pierde | Compensación obligatoria |
 |---|---|
 | Contexto limpio entre fases | Cada fase se abre releyendo **solo** los artefactos que la tabla de insumos le asigna, y se cierra escribiendo el suyo. Lo que recuerdes de una fase anterior no cuenta como insumo: si no está en el artefacto, no existe |
-| Independencia de la revisión | El `verifier` y el `code-reviewer` juzgan **contra el artefacto**, nunca contra la intención. Si no podés justificar un PASS citando la línea del `02-spec.md` o del `03-design.md`, es FAIL |
+| Independencia de la revisión | El `verifier` y el `code-reviewer` juzgan **contra el artefacto**, nunca contra la intención. Si no podés justificar un PASS citando la `S#` de `feature.md` (o la línea del `02-spec.md` / `03-design.md` en classic), es FAIL |
 | Aislamiento de herramientas | Las fases de lectura (`explorer`, `proposer`, `spec-writer`, `designer`, `task-planner`, `verifier`, `code-reviewer`, `security-reviewer`) **no escriben código de producción**. Solo el `implementer` toca `src/`. Esto no lo fuerza ninguna herramienta acá: es una regla que cumplís vos |
 
 **Los artefactos en disco son la máquina de estados.** Eso es lo que hace portable al proceso: el estado del pipeline no vive en el contexto de la conversación, vive en `<raíz>/<NNNN>-<slug>/`. Una sesión que se corta se retoma leyendo qué artefactos existen.
@@ -34,11 +34,11 @@ Igual que en el pipeline con subagentes:
 
 | Nivel | Recorrido |
 |---|---|
-| Completo | Las 10 fases, con los dos gates |
+| Completo | lite: `explorer` → (`proposer` si hay decisión) → `designer` → GATE 1 → `implementer` → revisores → GATE 2 → `archiver`, todo sobre un solo `feature.md`. classic: las 10 fases |
 | Bugfix | `explorer` → `implementer` (TDD ON: el test que reproduce el bug es el RED) → `verifier` + `code-reviewer` → GATE 2 |
 | Trivial | Sin pipeline; commit directo bajo la skill `delivery-workflow` |
 
-El nivel se escribe en `<raíz>/<NNNN>-<slug>/.level` al abrir el change, igual que siempre.
+El nivel se escribe en `<raíz>/<NNNN>-<slug>/.level` al abrir el change, igual que siempre. En lite, al abrir también se crea `feature.md` con `## Log` y `L1` = el pedido del humano textual (`ORCHESTRATOR.md` §1), y cada fase escribe su sección en vez de un archivo propio. El riesgo del diff (`hooks/review-plan.sh`) decide cuántas pasadas de revisión hacen falta: en riesgo alto, la segunda review se hace después de releer solo el diff y `feature.md`, sin mirar la primera.
 
 ## 4. Dónde no hay gatekeeper
 

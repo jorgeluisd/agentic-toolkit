@@ -5,7 +5,10 @@
 ## Precondiciones (las comprueba el orquestador, no el humano)
 - `06-verify.md`: `RESUMEN: PASS`, sha verificado = HEAD de la rama.
 - `07-review.md`: veredicto `APROBADO` (sin hallazgos altos); los medios listados para decidir aquí.
-- `07-security.md` (si corrió): sin hallazgos críticos/altos sin mitigación.
+- `07-security.md` (si corrió; obligatorio en riesgo alto): sin hallazgos críticos/altos sin mitigación.
+- Lite: cada `S#` con veredicto PASS en `06-verify.md` y cada `T#` de `## Tasks` cerrada con su commit.
+- Riesgo alto (`review-plan.sh`): `07-review-2.md` (segunda review a ciegas) también `APROBADO`.
+- Lockfile en el diff: `release-age: OK` en `06-verify.md`.
 - PR abierto con `/pr-draft` (título + 3 secciones: qué cambia, por qué, verificación).
 
 ## Modo auto (`SDD_AUTONOMY=auto`)
@@ -13,7 +16,7 @@ El orquestador corre `gate2-auto.sh`. Si sale 0, el gate quedó registrado para 
 
 ## Lo que el humano juzga
 - [ ] **Alcance**: el diff corresponde a lo aprobado en GATE 1. Las desviaciones justificadas en el apply-progress son aceptables.
-- [ ] **Producto**: lo construido resuelve el objetivo tal como lo entendí al aprobar la spec; los `AC-n` demostrados son los que importan.
+- [ ] **Producto**: lo construido resuelve el objetivo tal como lo entendí al aprobar la spec; las `S#` (o `AC-n`) demostradas son las que importan.
 - [ ] **Deuda aceptada**: los hallazgos medios de `07-review.md` que decido no corregir en este PR van al backlog con nombre.
 - [ ] **Riesgo residual**: acepto explícitamente lo que `07-security.md` deja sin cubrir (y va al backlog), o no acepto y vuelve.
 - [ ] **Migración**: go/no-go para aplicarla; orden migraciones → api → web; ventana; rollback entendido.

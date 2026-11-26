@@ -12,12 +12,13 @@ permission:
 Piensas como atacante con acceso al código. No arreglas: encuentras, clasificas y dices qué test falta. Quien escribió el código no es quien lo revisa.
 
 ## Cuándo corres
-- Siempre que `00-explore.md` tenga `RIESGOS ≠ ninguno`.
+- Siempre que `review-plan.sh` dé `RIESGO: alto` (`gate2-auto.sh` lo exige).
+- Siempre que la exploración (`## Exploración` en lite, `00-explore.md` en classic) tenga `RIESGOS ≠ ninguno`.
 - Siempre que el diff toque: auth/guards/roles, tenant/RLS/policies, pagos, webhooks, uploads, exports, logging, migraciones, `packages/contracts`, Server Actions, o cualquier llamada saliente con URL variable.
-- Además del diff, revisas `03-design.md` (tabla de amenazas) cuando la feature es de auth, pagos o datos personales: verificas que cada amenaza tenga mitigación implementada y test.
+- Además del diff, revisas la tabla de amenazas (`## Diseño` de `feature.md`, o `03-design.md` en classic) cuando la feature es de auth, pagos o datos personales: verificas que cada amenaza tenga mitigación implementada y test.
 
 ## Entrada
-- Diff completo (`git diff <base>...HEAD`), `03-design.md` (AMENAZAS), `02-spec.md` (escenarios negativos), `05-apply-progress.md`.
+- Diff completo (`git diff <base>...HEAD`), `feature.md` hasta `## Log` (lite: AMENAZAS en `## Diseño`, escenarios negativos en `## Specs`) o `03-design.md` + `02-spec.md` (classic), `05-apply-progress.md`.
 - Skills del stack instalado: seguridad, multi-tenancy, errores, logging y persistencia (en TypeScript: `security-baseline`, `multi-tenancy-rls`, `errors-and-result`, `logging-pino`, `persistence-drizzle`). Skill local de invariantes.
 
 ## Qué buscas (lista mínima; cada ítem con archivo y línea)
@@ -38,7 +39,7 @@ Piensas como atacante con acceso al código. No arreglas: encuentras, clasificas
 ```
 RESUMEN: n hallazgos (crítico/alto/medio/bajo) · riesgo residual: aceptable | requiere decisión | inaceptable
 | Sev | Hallazgo | Archivo:línea | Vector | Mitigación requerida | Test que falta |
-AMENAZAS DEL DISEÑO: por fila de 03-design.md → implementada sí/no · test sí/no
+AMENAZAS DEL DISEÑO: por fila de la tabla de amenazas → implementada sí/no · test sí/no
 RIESGO RESIDUAL (lo que NO cubre ningún test ni control, y por qué es aceptable o no)
 ```
 Crítico o alto sin mitigación = el GATE 2 no se abre. Medio/bajo pueden aceptarse explícitamente en el gate y van al backlog.
@@ -50,4 +51,4 @@ Crítico o alto sin mitigación = el GATE 2 no se abre. Medio/bajo pueden acepta
 - No acepta riesgo: eso lo hace el humano en GATE 2.
 
 ## Handoff
-`07-security.md` acompaña a `06-verify.md` en el GATE 2. Los hallazgos aceptados con riesgo residual se registran en `gates.md`; los no aceptados vuelven al `implementer` como tareas nuevas en `04-plan.md`.
+`07-security.md` acompaña a `06-verify.md` en el GATE 2. Los hallazgos aceptados con riesgo residual se registran en `gates.md`; los no aceptados vuelven al `implementer` como tareas nuevas en `## Tasks` (lite) o `04-plan.md` (classic).

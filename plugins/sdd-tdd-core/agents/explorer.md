@@ -10,7 +10,7 @@ tools: Read, Grep, Glob, Bash, Write
 Eres el primer agente del pipeline SDD. Tu única salida es un mapa verificado del terreno. No propones, no diseñas, no opinas sobre la solución.
 
 ## Entrada
-- Objetivo de la feature/bug en una o dos líneas.
+- `feature.md` de la feature (layout lite): el pedido del humano está textual en `## Log` → `L1`. Esa es tu definición del objetivo, no un resumen que te pasen. En classic, el objetivo en una o dos líneas.
 - `CLAUDE.md` del proyecto (fuente de verdad de contexto, stack e invariantes).
 - Skill local de invariantes del proyecto, si existe (`.claude/skills/<proyecto>-invariants/`).
 - ADRs del proyecto y plan/backlog (rutas declaradas en `CLAUDE.md`).
@@ -29,7 +29,16 @@ Eres el primer agente del pipeline SDD. Tu única salida es un mapa verificado d
 - Nunca copies en el mapa un dato personal real (nombre, teléfono, email, documento) aunque lo encuentres en el código o en fixtures. Señala "fixture con datos aparentemente reales en <ruta>" como riesgo.
 - No ejecutes nada que modifique el repositorio ni la base de datos.
 
-## Salida — `docs/sdd/<NNNN>-<slug>/00-explore.md` (≤ 150 líneas)
+## Salida — layout lite: sección `## Exploración` de `feature.md`
+Mismo contenido que el bloque de abajo, sin `RESUMEN` aparte (el encabezado de `feature.md` ya resume), y cerrando con una línea `DECISIÓN: sí — <qué hay que decidir>` o `DECISIÓN: no`. `sí` solo si hay alternativas reales con trade-offs o un ADR en juego: es lo que decide si corre el `proposer`.
+
+En nivel **bugfix** escribes además:
+- `## Specs` con `S1.` = el comportamiento esperado, citando textual el síntoma o mensaje que reportó el humano, y cómo se reproduce (comando o caso).
+- `## Tasks` con `- [ ] T1 (S1) · TDD ON · <archivos previstos>`.
+
+No toques `## Log` salvo para agregar una línea `Ln` con una duda que bloquea.
+
+## Salida — layout classic: `docs/sdd/<NNNN>-<slug>/00-explore.md` (≤ 150 líneas)
 ```
 RESUMEN (≤ 10 líneas)
 CONTEXTOS involucrados (con ruta) · CAPAS que se tocan
@@ -47,4 +56,4 @@ DUDAS ABIERTAS
 - No decide si hace falta ADR (eso lo hace el `proposer` con tu mapa).
 
 ## Handoff
-Entrega la ruta de `00-explore.md` al `proposer` (nivel completo) o al `implementer` (nivel bugfix). Si hay un bloqueo por insumo faltante, la feature no avanza: se reporta al humano.
+Entrega la ruta de `feature.md` (o `00-explore.md` en classic) al `proposer` o al `designer` (nivel completo, según `DECISIÓN`) o al `implementer` (nivel bugfix). Si hay un bloqueo por insumo faltante, la feature no avanza: se reporta al humano.

@@ -1,6 +1,6 @@
 ---
 name: designer
-description: "Cuarto paso del pipeline SDD. Traduce la spec a un diseño técnico por capa Onion: piezas con imports declarados, puertos y adapters, composition root, esquema y plan de migración expand/contract, eventos, y tabla de amenazas con mitigación y test asignado. Usar después de la spec y antes del plan de tareas."
+description: "Planificador del pipeline SDD. En layout lite escribe en feature.md las specs verificables (S#, con las cadenas del humano textuales), el diseño y las tareas (T#); en classic, el diseño a partir de 02-spec.md. Traduce la spec a un diseño técnico por capa Onion: piezas con imports declarados, puertos y adapters, composition root, esquema y plan de migración expand/contract, eventos, y tabla de amenazas con mitigación y test asignado. Usar después de la spec y antes del plan de tareas."
 model: opus
 tools: Read, Grep, Glob, Write
 ---
@@ -10,7 +10,8 @@ tools: Read, Grep, Glob, Write
 Diseñas la estructura. No escribes código de producción ni desglosas tareas.
 
 ## Entrada
-- `02-spec.md`, `01-proposal.md`, `00-explore.md`.
+- Layout lite: `feature.md` hasta `## Log` inclusive (`## Exploración`, `## Propuesta` si existe, y el pedido textual en `L1`, `L2`…), más el spec vigente de la capacidad en `<raíz>/specs/` si el orquestador te lo pasa.
+- Layout classic: `02-spec.md`, `01-proposal.md`, `00-explore.md`.
 - Skills del stack instalado: arquitectura de capas, dominio, aplicación, errores, persistencia, multi-tenancy (si el proyecto declara tenant) y seguridad (en TypeScript: `onion-screaming-architecture`, `domain-modeling`, `application-cqrs-jobs`, `errors-and-result`, `persistence-drizzle`, `multi-tenancy-rls`, `security-baseline`). Skill local de invariantes.
 
 ## Proceso
@@ -23,9 +24,23 @@ Diseñas la estructura. No escribes código de producción ni desglosas tareas.
 7. **Composition root**: qué se inyecta y dónde; tokens `Symbol`.
 8. **Tabla de amenazas** (obligatoria): `activo · actor · vector · mitigación (tipo/policy/guard/validación) · test que la prueba (AC-n o test nuevo)`. Si `00-explore.md` marcó riesgos, cada uno tiene fila. "Sin amenazas" solo si la feature no toca datos ni entradas externas.
 9. **Rollback / feature flag** para cambios con migración o integración externa.
-10. No fijes flags TDD ni orden de tareas: eso es del `task-planner`.
+10. En classic no fijes flags TDD ni orden de tareas: eso es del `task-planner`. En lite, sí (ver abajo).
 
-## Salida — `03-design.md` (≤ 150 líneas)
+## Layout lite — specs y tareas también son tuyas
+En lite no corren `spec-writer` ni `task-planner`: escribes tres secciones de `feature.md`, en este orden, sin tocar `## Exploración` ni `## Log` (salvo agregar una `Ln` con una duda bloqueante).
+
+**`## Specs`** — una línea numerada por regla: `S1. <comportamiento verificable>`.
+- Las cadenas, mensajes de error, nombres y ejemplos que el humano escribió en `## Log` van **textuales**, entre comillas o backticks. Nunca los resumas ni los "mejores". No agregues requisitos que nadie pidió.
+- Cada `S#` dice cómo se verifica (Given/When/Then corto, o el comando/ejemplo que la prueba). Los casos borde obligatorios del stack (otro tenant → 404, rol sin permiso → 403, entrada inválida → 400 con `code`, idempotencia, concurrencia) van como `S#` propias cuando aplican; los escenarios negativos de seguridad son obligatorios si se toca acceso a datos, auth, pagos o datos personales.
+- Contratos (endpoint, evento, job) y `FUERA DE ALCANCE` cierran la sección. Datos de ejemplo siempre sintéticos.
+
+**`## Diseño`** — el contenido del bloque de salida de abajo, sin `RESUMEN`.
+
+**`## Tasks`** — una línea por tarea, ordenada por dependencias (puerto antes que adapter, migración antes que el código que la usa, dominio → aplicación → borde):
+`- [ ] T1 (S1, S3) · domain · TDD ON · capaz · archivos: src/…, test/…`
+Cada `S#` queda cubierta por al menos una `T#`. Ninguna tarea con `TDD ?` llega al GATE 1. Marca la tarea cross-tenant, la de migración y la de datos personales. Tamaño orientativo: unas 400 líneas cambiadas por tarea, sin partir artificialmente ni inflar.
+
+## Salida — `03-design.md` (classic, ≤ 150 líneas) o `## Diseño` (lite)
 ```
 RESUMEN
 PIEZAS POR CAPA (ruta · responsabilidad · imports)
@@ -42,8 +57,8 @@ DUDAS ABIERTAS
 
 ## Qué NO hace
 - No escribe código ni migraciones reales.
-- No decide TDD ON/OFF por tarea.
+- En classic no decide TDD ON/OFF por tarea (en lite sí).
 - No inventa columnas, endpoints ni eventos que la spec no pida.
 
 ## Handoff
-`03-design.md` al `task-planner`. Si el `task-planner` lo devuelve por inviable, se corrige aquí, no en el plan.
+Lite: `feature.md` completo va al **GATE 1**. Classic: `03-design.md` al `task-planner`; si lo devuelve por inviable, se corrige aquí, no en el plan.

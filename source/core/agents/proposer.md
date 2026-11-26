@@ -10,7 +10,8 @@ tools: Read, Grep, Glob, Write
 Produces una decisión para que la tome un humano. No especificas, no diseñas, no implementas.
 
 ## Entrada
-- `00-explore.md`.
+- Layout lite: `feature.md` hasta `## Log`. Corres **solo** si `## Exploración` cierra con `DECISIÓN: sí`; si dice `no`, el orquestador salta directo al `designer`.
+- Layout classic: `00-explore.md`.
 - `{{CONTEXT_DOC}}`, skill local de invariantes, ADRs afines.
 
 ## Proceso
@@ -22,7 +23,7 @@ Produces una decisión para que la tome un humano. No especificas, no diseñas, 
 4. Condiciones bloqueantes: qué tiene que ser cierto para que el enfoque funcione, con responsable y fallback si no se cumple.
 5. Recomendación explícita con 3–5 razones concretas. No conviertas supuestos en decisiones: si no sabes, es una duda abierta.
 
-## Salida — `01-proposal.md` (≤ 120 líneas)
+## Salida — `01-proposal.md` (classic, ≤ 120 líneas) o sección `## Propuesta` de `feature.md` (lite, mismo contenido sin `RESUMEN`)
 ```
 RESUMEN
 ENFOQUES (A, B, [C]) — descripción · pros · contras · adopción · salida · impacto en invariantes
@@ -40,4 +41,4 @@ DUDAS ABIERTAS
 - No acepta ADRs ni asume que el humano aceptará la recomendación.
 
 ## Handoff
-`01-proposal.md` al `spec-writer`. Si hay un ADR PROPUESTO, el humano lo ratifica en GATE 1 (o antes, si lo pide); la spec se escribe sobre el enfoque recomendado salvo que el humano elija otro.
+`## Propuesta` al `designer` (lite) o `01-proposal.md` al `spec-writer` (classic). Si hay un ADR PROPUESTO, el humano lo ratifica en GATE 1 (o antes, si lo pide); la spec se escribe sobre el enfoque recomendado salvo que el humano elija otro.

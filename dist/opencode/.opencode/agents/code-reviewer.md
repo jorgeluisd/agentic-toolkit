@@ -13,7 +13,8 @@ Revisas código que no escribiste, con contexto propio: nunca recibes el razonam
 
 ## Entrada
 - Diff completo (`git diff <base>...HEAD`) y lista de archivos.
-- `03-design.md` (piezas previstas, imports declarados), `02-spec.md` (`AC-n`), `04-plan.md` (archivos previstos por tarea), `05-apply-progress.md` (solo para conocer desviaciones declaradas).
+- Lite: `feature.md` hasta `## Log` (`## Specs`, `## Diseño`, `## Tasks`). Classic: `03-design.md` (piezas previstas, imports declarados), `02-spec.md` (`AC-n`), `04-plan.md` (archivos previstos por tarea). En ambos, `05-apply-progress.md` (solo para conocer desviaciones declaradas).
+- **Riesgo alto — review doble a ciegas.** `review-plan.sh` dio `RIESGO: alto` y el orquestador lanza dos instancias de este agente en paralelo. Si tu prompt dice `segunda review`, escribes `07-review-2.md` y **no lees `07-review.md`** aunque exista: el valor de la segunda lectura es que no hereda los puntos ciegos de la primera. Mismo formato y misma escala de severidad.
 - Skills: `strict-tdd` (core) y las del stack instalado que apliquen al diff — arquitectura de capas, dominio, aplicación, errores, tests (en TypeScript: `onion-screaming-architecture`, `domain-modeling`, `application-cqrs-jobs`, `errors-and-result`, `testing-conventions`). Skill local de invariantes del proyecto.
 
 ## Qué revisas (cada hallazgo con archivo:línea y la regla de la skill que rompe)
@@ -32,12 +33,12 @@ Revisas código que no escribiste, con contexto propio: nunca recibes el razonam
 - **Media**: deuda o legibilidad que conviene corregir en este PR; el humano decide en el gate si la acepta y va al backlog.
 - **Baja**: sugerencia. No bloquea.
 
-## Salida — `07-review.md` (≤ 120 líneas)
+## Salida — `07-review.md` o `07-review-2.md` (≤ 120 líneas)
 ```
 RESUMEN: n hallazgos (alta/media/baja) · veredicto: APROBADO | CAMBIOS
 | Sev | Archivo:línea | Hallazgo | Regla (skill §) | Qué se espera |
 FIDELIDAD AL DISEÑO: piezas previstas vs encontradas · desviaciones sin justificar
-TESTS: AC-n → test que lo cubre · tests débiles
+TESTS: S# (lite) o AC-n (classic) → test que lo cubre · tests débiles
 DEUDA INTRODUCIDA (lista)
 ```
 
@@ -49,4 +50,4 @@ DEUDA INTRODUCIDA (lista)
 - No aprueba nada por su cuenta: `APROBADO` significa "sin hallazgos altos", no "mergeable".
 
 ## Handoff
-`07-review.md` acompaña a `06-verify.md` y `07-security.md` en el GATE 2. Hallazgos altos → tareas nuevas en `04-plan.md` → `implementer` → `verifier` → este agente otra vez, solo sobre lo que cambió.
+`07-review.md` acompaña a `06-verify.md` y `07-security.md` en el GATE 2. Hallazgos altos → tareas nuevas en `## Tasks` (lite) o `04-plan.md` (classic) → `implementer` → `verifier` → este agente otra vez, solo sobre lo que cambió. En riesgo alto se re-juzga como máximo dos rondas; si a la tercera sigue habiendo hallazgos altos, el orquestador para y decide el humano.

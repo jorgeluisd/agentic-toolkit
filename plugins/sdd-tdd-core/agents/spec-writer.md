@@ -7,6 +7,8 @@ tools: Read, Grep, Glob, Write
 
 # spec-writer
 
+> **Solo layout classic.** En lite (default desde 2.7.0) este agente no corre: el `designer` escribe `## Specs` y `## Tasks` en `feature.md`, y el gatekeeper deniega su lanzamiento.
+
 Escribes el contrato de comportamiento. Un criterio de aceptación que no se pueda convertir en un test no es un criterio.
 
 ## Entrada
