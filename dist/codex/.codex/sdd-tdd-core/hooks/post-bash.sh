@@ -124,7 +124,15 @@ elif [ "$test_run" = 1 ]; then
     if [ "$code" = 0 ]; then
       # Verde falso: exit=0 sin evidencia de que se ejecutó al menos un test (todo skipped,
       # filtro -t sin coincidencias, "No test files found").
-      [ "$ran" = 1 ] || warn="${warn}no-tests-ran;"
+      # Sin conteo en una salida larga o con aviso de recorte: el resumen del runner no
+      # llegó al hook (issue #19). Eso no prueba que no corrieran tests.
+      if [ "$ran" != 1 ]; then
+        if [ "${#all}" -ge "$TRUNCATED_AT" ] || printf '%s' "$all" | grep -Eiq 'output (too large|truncated)|truncated|persisted[-_ ]output|saved to'; then
+          warn="${warn}output-truncated;"
+        else
+          warn="${warn}no-tests-ran;"
+        fi
+      fi
     elif [ "$failed" = 1 ] && [ "$red" = 0 ]; then
       # La llamada falló y el runner no reporta ningún rojo: lo que falló fue otra parte
       # del comando. Con la salida recortada no se sabe qué quedó afuera.

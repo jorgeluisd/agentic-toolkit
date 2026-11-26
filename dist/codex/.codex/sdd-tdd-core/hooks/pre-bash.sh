@@ -37,7 +37,11 @@ fi
 if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+push.*(--force([[:space:]]|$)|-f([[:space:]]|$))' && ! printf '%s' "$lc" | grep -q -- '--force-with-lease'; then
   deny "Prohibido git push --force. Usa --force-with-lease solo con confirmación humana explícita."; exit 0
 fi
-if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+(commit|push).*--no-verify'; then
+# El texto entre comillas es dato (el cuerpo de un PR, un -m), no un flag: se descarta
+# antes de buscar --no-verify. Si el flag mismo va entre comillas, igual es un flag.
+unq="$(printf '%s' "$lc" | sed -E "s/\"[^\"]*\"/\"\"/g; s/'[^']*'/''/g")"
+if { printf '%s' "$unq" | grep -Eq 'git[[:space:]]+(commit|push)([^;&|]*)--no-verify'; } \
+   || printf '%s' "$lc" | grep -Eq "git[[:space:]]+(commit|push)[^;&|]*[\"']--no-verify[\"']"; then
   deny "Prohibido --no-verify: los hooks de git son parte de los guardrails."; exit 0
 fi
 if printf '%s' "$lc" | grep -Eq "git[[:space:]]+push[[:space:]].*[[:space:]](origin[[:space:]]+)?(main|master|$BASE_BRANCH)([[:space:]]|:|$)"; then
