@@ -22,7 +22,7 @@
 # Claves que el archivo del proyecto puede definir. Se guarda lo que traía el
 # entorno para que una re-resolución recargue desde cero: si no, el repositorio B
 # hereda las claves que el archivo de A definió y B no.
-SDD_KEYS="SDD_PROD_MARKERS SDD_BASE_BRANCH SDD_TENANT_FIELD SDD_ARTIFACT_STORE SDD_ARTIFACTS_DIR SDD_PROGRESS_KEEP_TASKS SDD_COMMENT_MAX_BLOCK SDD_COMMENT_MAX_PCT SDD_TEST_CMD_RE SDD_AUTONOMY SDD_HUMAN_PATHS SDD_DOCS_AUTO_PATHS SDD_DOCS_HUMAN_PATHS"
+SDD_KEYS="SDD_PROD_MARKERS SDD_BASE_BRANCH SDD_TENANT_FIELD SDD_ARTIFACT_STORE SDD_ARTIFACTS_DIR SDD_PROGRESS_KEEP_TASKS SDD_COMMENT_MAX_BLOCK SDD_COMMENT_MAX_PCT SDD_TEST_CMD_RE SDD_AUTONOMY SDD_HUMAN_PATHS SDD_DOCS_AUTO_PATHS SDD_DOCS_HUMAN_PATHS SDD_LAYOUT SDD_HANDOFF_MAX_CHARS SDD_HIGH_RISK_PATHS"
 for _k in $SDD_KEYS; do eval "_sdd_env_$_k=\${$_k:-}"; done
 
 # _sdd_env_file <raíz>: ruta del archivo de configuración del repositorio, en orden
@@ -135,6 +135,19 @@ _sdd_configure() {
   # siendo decisión humana (ADR, pricing, legales...).
   DOCS_AUTO_PATHS="${SDD_DOCS_AUTO_PATHS:-${CLAUDE_PLUGIN_OPTION_DOCS_AUTO_PATHS:-}}"
   DOCS_HUMAN_PATHS="${SDD_DOCS_HUMAN_PATHS:-${CLAUDE_PLUGIN_OPTION_DOCS_HUMAN_PATHS:-(^|/)adrs?/}}"
+  # Formato de los artefactos de una feature nueva: lite (default) reúne exploración,
+  # propuesta, specs, diseño, tareas y log en un solo feature.md; classic mantiene un
+  # archivo por fase (00-explore … 04-plan). Una feature que ya tiene artefactos classic
+  # sigue en classic aunque el proyecto cambie de valor (feature_layout).
+  LAYOUT="${SDD_LAYOUT:-${CLAUDE_PLUGIN_OPTION_LAYOUT:-lite}}"
+  case "$LAYOUT" in lite|classic) ;; *) LAYOUT=lite ;; esac
+  # Largo máximo del prompt con el que se lanza un agente del pipeline en layout lite.
+  # El handoff es por referencia (ruta + T# + S#), no una paráfrasis del pedido. 0 = sin tope.
+  HANDOFF_MAX_CHARS="${SDD_HANDOFF_MAX_CHARS:-${CLAUDE_PLUGIN_OPTION_HANDOFF_MAX_CHARS:-2000}}"
+  case "$HANDOFF_MAX_CHARS" in ""|*[!0-9]*) HANDOFF_MAX_CHARS=2000 ;; esac
+  # Rutas (regex grep -E) que suben el riesgo del diff a "alto": review doble a ciegas y
+  # security obligatorios (review-plan.sh, gate2-auto.sh). Se suma a SDD_HUMAN_PATHS.
+  HIGH_RISK_PATHS="${SDD_HIGH_RISK_PATHS:-${CLAUDE_PLUGIN_OPTION_HIGH_RISK_PATHS:-(^|/)(auth|security|payments?|billing|webhooks?|migrations?)/}}"
   # Gestor de paquetes JS del proyecto (guardrail npm/yarn): solo si hay pnpm-lock.yaml.
   PNPM_PROJECT=0; [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && PNPM_PROJECT=1
   return 0
@@ -346,6 +359,71 @@ gate2_recorded_for_head() {
 
 # hook_debug <mensaje>: traza opcional, solo con SDD_HOOKS_DEBUG=1. Para lo que no
 # es un error sino una decisión deliberada de no hacer nada.
+# Almacenes de credenciales del usuario, fuera de cualquier repo: claves SSH, sesiones y
+# credenciales de AWS, tokens de gh (también en configs por carpeta, gh-<cuenta>), docker,
+# kubernetes, GPG, gcloud. Se compara contra la ruta entera, no contra el basename, porque
+# los nombres (credentials, config, hosts.yml) son genéricos.
+CRED_STORE_RE='(^|/|~)\.ssh/|(^|/|~)\.aws/(credentials|sso/|login/|cli/cache/)|(^|/|~)\.config/gh[^/]*/hosts\.yml|(^|/|~)\.docker/config\.json|(^|/|~)\.kube/config|(^|/|~)\.gnupg/|(^|/|~)\.config/gcloud/(credentials|application_default|access_tokens|legacy_credentials)'
+
+# Formato de los artefactos de la feature en <dir>: classic si ya tiene alguno de los
+# archivos por fase, si no el configurado (LAYOUT). Así una feature en vuelo no cambia
+# de formato a mitad de camino.
+feature_layout() {
+  local d="$1" f
+  for f in 00-explore.md 01-proposal.md 02-spec.md 03-design.md 04-plan.md; do
+    [ -f "$d/$f" ] && { printf classic; return 0; }
+  done
+  printf '%s' "$LAYOUT"
+}
+
+# ¿<archivo> tiene la sección `## <nombre>` con contenido (alguna línea no vacía antes de
+# la sección siguiente)?
+has_section() {
+  [ -f "$1" ] || return 1
+  awk -v h="## $2" '
+    $0 == h || index($0, h " ") == 1 { on = 1; next }
+    on && /^## / { exit }
+    on && NF { found = 1; exit }
+    END { exit found ? 0 : 1 }' "$1"
+}
+
+# Cuerpo de la sección `## <nombre>` de <archivo> (sin el título).
+section_body() {
+  awk -v h="## $2" '
+    $0 == h || index($0, h " ") == 1 { on = 1; next }
+    on && /^## / { exit }
+    on { print }' "$1" 2>/dev/null
+}
+
+# Archivos del diff de la rama contra la base (origin/<base> si existe), uno por línea.
+branch_diff_files() {
+  local wt="${WORKTREE_DIR:-$PROJECT_DIR}" base="$BASE_BRANCH"
+  git -C "$wt" rev-parse -q --verify "origin/$BASE_BRANCH" >/dev/null 2>&1 && base="origin/$BASE_BRANCH"
+  git -C "$wt" diff --name-only "$base"...HEAD 2>/dev/null
+}
+
+# Riesgo del diff para decidir cuánto se gasta en revisarlo (review-plan.sh, gate2-auto.sh):
+#   alto  -> alguna ruta de SDD_HIGH_RISK_PATHS o SDD_HUMAN_PATHS
+#   bajo  -> solo tests, documentación (docs/, README, CHANGELOG) o artefactos del pipeline
+#   medio -> el resto
+# Lee los archivos por stdin. Un diff vacío es bajo.
+TEST_PATH_RE='(^|/)(tests?|__tests__|specs?|testdata|fixtures)/|\.(test|spec)\.[A-Za-z0-9]+$|_test\.go$'
+risk_tier() {
+  local f tier=bajo rel_root
+  rel_root="${ARTIFACTS_ROOT#"${WORKTREE_DIR:-$PROJECT_DIR}"/}"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if { [ -n "$HIGH_RISK_PATHS" ] && printf '%s' "$f" | grep -Eq "$HIGH_RISK_PATHS"; } \
+       || { [ -n "$HUMAN_PATHS" ] && printf '%s' "$f" | grep -Eq "$HUMAN_PATHS"; }; then
+      printf alto; return 0
+    fi
+    case "$f" in "$rel_root"/*|docs/*|*/docs/*|README*|*/README*|CHANGELOG*|*/CHANGELOG*) continue ;; esac
+    printf '%s' "$f" | grep -Eq "$TEST_PATH_RE" && continue
+    tier=medio
+  done
+  printf '%s' "$tier"
+}
+
 hook_debug() { [ "${SDD_HOOKS_DEBUG:-0}" = 1 ] && hook_diag "debug: $1"; return 0; }
 
 # is_test_run <comando>: 0 si alguno de los segmentos del comando ejecuta tests.

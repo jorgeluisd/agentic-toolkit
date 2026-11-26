@@ -1,8 +1,8 @@
 {
   "name": "sdd-tdd-core",
   "displayName": "SDD/TDD Core",
-  "version": "2.6.1",
-  "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: 10 fases (explorer, proposer, spec-writer, designer, task-planner, implementer, verifier, code-reviewer, security-reviewer, archiver), 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript, stack-go u otro) que aporte las skills tecnicas.",
+  "version": "2.7.0",
+  "description": "Proceso de desarrollo guiado por especificacion con Strict TDD, agnostico de lenguaje y de agente: layout lite con un solo feature.md (explorer, proposer opcional, designer, implementer, verifier, code-reviewer, security-reviewer, archiver) o classic de 10 fases, 2 gates humanos, protocolo de artefactos, comandos de sesion, skills de proceso (strict-tdd, delivery-workflow) y guardrails por hooks. Requiere un plugin de stack (stack-typescript, stack-go u otro) que aporte las skills tecnicas.",
   "author": {
     "name": "Jorge Diaz",
     "email": "diazjorgeluis10@gmail.com"
@@ -107,6 +107,27 @@
       "title": "Rutas de documentacion que siguen siendo humanas (regex)",
       "description": "Dentro de la documentacion, rutas que nunca se mergean solas: ADR, pricing, legales. Default: carpetas adr/ o adrs/.",
       "default": "(^|/)adrs?/",
+      "required": false
+    },
+    "layout": {
+      "type": "string",
+      "title": "Layout de artefactos",
+      "description": "lite: un solo feature.md por feature (Exploracion, Propuesta, Specs S#, Diseno, Tasks T#, Log con el pedido textual). classic: un archivo por fase (00-explore ... 04-plan). Una feature con artefactos classic sigue en classic.",
+      "default": "lite",
+      "required": false
+    },
+    "handoff_max_chars": {
+      "type": "string",
+      "title": "Tope del prompt de handoff (caracteres)",
+      "description": "Largo maximo del prompt con el que se lanza un agente del pipeline en layout lite. El handoff es por referencia (ruta + T# + S#). 0 = sin tope.",
+      "default": "2000",
+      "required": false
+    },
+    "high_risk_paths": {
+      "type": "string",
+      "title": "Rutas de riesgo alto (regex)",
+      "description": "Si el diff toca alguna, review-plan.sh y gate2-auto.sh exigen review doble a ciegas (07-review-2.md) y security-reviewer.",
+      "default": "(^|/)(auth|security|payments?|billing|webhooks?|migrations?)/",
       "required": false
     }
   },

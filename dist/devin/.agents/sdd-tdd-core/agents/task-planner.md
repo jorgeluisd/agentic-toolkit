@@ -7,6 +7,8 @@ tools: Read, Grep, Glob, Write, Bash
 
 # task-planner
 
+> **Solo layout classic.** En lite (default desde 2.7.0) este agente no corre: el `designer` escribe `## Specs` y `## Tasks` en `feature.md`, y el gatekeeper deniega su lanzamiento.
+
 Conviertes el diseño en una secuencia ejecutable. Eres además el control de viabilidad del diseño: si no se puede planificar, se devuelve al `designer`.
 
 ## Entrada

@@ -45,10 +45,16 @@ Cuando el repositorio resuelto no es el de la sesión, la línea de evidencia lo
 | `SDD_PROGRESS_KEEP_TASKS` | `progress_keep_tasks` | `10` | Tareas cuyo detalle conserva `05-apply-progress.md` antes de rotar. El `implementer` lo relee en cada tarea; pasado el umbral el gatekeeper deniega hasta rotar |
 | `SDD_COMMENT_MAX_BLOCK` | `comment_max_block` | `4` | Bloque contiguo máximo de comentario en código fuente |
 | `SDD_COMMENT_MAX_PCT` | `comment_max_pct` | `15` | Porcentaje máximo de líneas comentadas por archivo |
+| `SDD_LAYOUT` | `layout` | `lite` | `lite`: un solo `feature.md` por feature; `classic`: un archivo por fase. Una feature con artefactos classic sigue en classic. Ver `ORCHESTRATOR.md` §1 |
+| `SDD_HANDOFF_MAX_CHARS` | `handoff_max_chars` | `2000` | Tope del prompt con el que se lanza un agente en lite: el handoff es por referencia (ruta + `T#` + `S#`). `0` = sin tope |
+| `SDD_HIGH_RISK_PATHS` | `high_risk_paths` | auth, security, payments, billing, webhooks, migrations | Rutas que suben el riesgo del diff a alto: review doble a ciegas y `security-reviewer` obligatorios |
+| `SDD_RELEASE_MIN_HOURS` · `SDD_RELEASE_AGE_ALLOW` | — | `72` · vacío | Madurez mínima de toda versión que entra a `pnpm-lock.yaml` o `go.sum` (`hooks/release-age.sh`) y paquetes exentos |
 
 ---
 
-## Los 10 agentes
+## Los agentes
+
+En layout **lite** (default) corren `explorer` → `proposer` (solo si hay una decisión real) → `designer` → GATE 1 → `implementer` → revisores → GATE 2 → `archiver`, todos sobre un solo `feature.md` con secciones fijas (`## Exploración`, `## Propuesta`, `## Specs` con `S#`, `## Diseño`, `## Tasks` con `T#`, `## Log` con el pedido textual en `L1`); `spec-writer` y `task-planner` solo corren en classic. La tabla de abajo es la de classic.
 
 Cada agente corre en su propio contexto y recibe **solo** las referencias de los artefactos previos (`sdd/<change>/<artefacto>`) y su tarea, nunca el historial de chat. El store configurado resuelve cada referencia; ver `ORCHESTRATOR.md` §3.
 
@@ -98,7 +104,7 @@ El que planifica no implementa; el que implementa no se revisa a sí mismo. `ver
 
 ## Hooks
 
-Seis scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corren en cada tool call y no dependen de que el agente coopere.
+Seis scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corren en cada tool call y no dependen de que el agente coopere. Tres más no son hooks sino scripts que corre el orquestador o el verifier: `gate2-auto.sh` (GATE 2 automático atado al sha), `review-plan.sh` (riesgo del diff → cuánta revisión) y `release-age.sh` (madurez de las versiones nuevas del lockfile).
 
 | Hook | Evento | Qué hace |
 |---|---|---|
@@ -111,7 +117,7 @@ Seis scripts en `hooks/`, registrados en [`hooks.json`](hooks/hooks.json). Corre
 
 ### Denegado (`deny`)
 
-`git push --force` sin `--force-with-lease` · `--no-verify` · commits con atribución de IA · leer o editar `.env*` · secretos o datos personales no sintéticos en artefactos, docs, fixtures y tests · filtrar la salida de tests con `| tail`/`| grep` · `npm`/`yarn` en repos con `pnpm-lock.yaml` · aprobación masiva de scripts de instalación · exceso de comentarios · migraciones destructivas, `SET NOT NULL` sin default, tabla con tenant sin `FORCE ROW LEVEL SECURITY`, `SECURITY DEFINER` sin `search_path`, `GRANT` a `anon`/`PUBLIC`.
+`git push --force` sin `--force-with-lease` · `--no-verify` · commits con atribución de IA · leer o editar `.env*` · leer, copiar o nombrar almacenes de credenciales del usuario (`~/.ssh`, `~/.aws/credentials` y cachés de sesión, tokens de gh incluso en configs por carpeta, docker, kube, gnupg, gcloud) · `gh auth token` · secretos o datos personales no sintéticos en artefactos, docs, fixtures y tests · filtrar la salida de tests con `| tail`/`| grep` · `npm`/`yarn` en repos con `pnpm-lock.yaml` · aprobación masiva de scripts de instalación · exceso de comentarios · migraciones destructivas, `SET NOT NULL` sin default, tabla con tenant sin `FORCE ROW LEVEL SECURITY`, `SECURITY DEFINER` sin `search_path`, `GRANT` a `anon`/`PUBLIC`.
 
 ### Confirmación humana (`ask`)
 
@@ -220,7 +226,7 @@ El hook `pre-task` intercepta cada lanzamiento de agente y deniega si falta un i
 | `implementer` | + `05-apply-progress.md` con ≤ `SDD_PROGRESS_KEEP_TASKS` tareas sin rotar |
 | `archiver` | `gates` |
 
-En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las fases de diseño quedan denegadas por no pertenecer al recorrido. Sin feature activa el hook no interviene.
+En layout lite el insumo es una sección de `feature.md` (`## Log` con `L1` para todas las fases; `## Exploración` para proposer/designer; `## Specs` + `## Tasks` (+ `## Diseño` y GATE 1 en full) para el implementer, cuyo prompt además debe nombrar su `T#`), y ningún prompt pasa de `SDD_HANDOFF_MAX_CHARS`. En nivel `bugfix` (declarado en `<feature>/.level`) el conjunto se reduce y las fases de diseño quedan denegadas por no pertenecer al recorrido. Sin feature activa el hook no interviene.
 
 ---
 

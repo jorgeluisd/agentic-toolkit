@@ -6,7 +6,7 @@ Redacta la descripción del PR para la feature en:
 $ARGUMENTS
 (si está vacío, usa la feature activa del worktree: `$(git rev-parse --absolute-git-dir)/sdd-current`, o `docs/sdd/.current` si ese archivo no existe y estás en el checkout principal).
 
-Insumos: `02-spec.md` (RESUMEN y OBJETIVO), `06-verify.md` (tabla de checks y sha), `05-apply-progress.md` (solo para confirmar el alcance). Carga la skill `delivery-workflow`.
+Insumos: el encabezado y `## Specs` de `feature.md` (lite) o `02-spec.md` (RESUMEN y OBJETIVO, classic), `06-verify.md` (tabla de checks y sha), `05-apply-progress.md` (solo para confirmar el alcance). Carga la skill `delivery-workflow`.
 
 Plantilla EXACTA (no agregues secciones, no quites ninguna). Título en inglés; cuerpo en español neutro y breve: ≤ 8 líneas en total.
 

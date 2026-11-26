@@ -33,6 +33,14 @@ if [ "$prod" = 1 ]; then
   exit 0
 fi
 
+# 1b) Almacenes de credenciales del usuario: ningún comando los nombra (ni cat, ni cp, ni grep).
+if printf '%s' "$code" | grep -Eq "$CRED_STORE_RE"; then
+  deny "Prohibido tocar almacenes de credenciales del usuario (~/.ssh, ~/.aws/credentials y cachés de sesión, tokens de gh, docker, kube, gnupg, gcloud) desde el agente."; exit 0
+fi
+if printf '%s' "$lc" | grep -Eq '(^|[[:space:];&|(])gh[[:space:]]+auth[[:space:]]+token'; then
+  deny "Prohibido 'gh auth token': imprime el token de GitHub en el contexto del agente."; exit 0
+fi
+
 # 2) Git: prohibiciones duras.
 if printf '%s' "$lc" | grep -Eq 'git[[:space:]]+push.*(--force([[:space:]]|$)|-f([[:space:]]|$))' && ! printf '%s' "$lc" | grep -q -- '--force-with-lease'; then
   deny "Prohibido git push --force. Usa --force-with-lease solo con confirmación humana explícita."; exit 0

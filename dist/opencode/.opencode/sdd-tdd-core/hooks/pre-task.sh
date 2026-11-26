@@ -44,6 +44,53 @@ level=full
 [ -f "$dir/.level" ] && level="$(tr -d '[:space:]' < "$dir/.level")"
 case "$level" in full|bugfix) ;; *) level=full ;; esac
 
+layout="$(feature_layout "$dir")"
+prompt="$(jq_get '.tool_input.prompt')"
+
+if [ "$layout" = lite ]; then
+  doc="$dir/feature.md"
+  need=""
+  lack(){ need="$need
+- $1"; }
+  sec(){ has_section "$doc" "$1" || lack "$feature/feature.md sin la sección '## $1'"; }
+  # El pedido del humano entra textual en L1 antes de cualquier fase: es la referencia que
+  # leen todos los agentes, en vez de una paráfrasis que se degrada de fase en fase.
+  if ! has_section "$doc" Log || ! section_body "$doc" Log | grep -Eq '^L1[[:space:]]'; then
+    lack "$feature/feature.md sin '## Log' con L1 (el pedido del humano, textual). Lo escribe el orquestador al crear la carpeta, antes del explorer."
+  fi
+  case "$agent" in
+    spec-writer|task-planner)
+      deny "GATEKEEPER: la feature $feature usa el layout lite: el designer escribe '## Specs' y '## Tasks' en feature.md, y '$agent' no corre. Si el proyecto necesita el formato por fases, SDD_LAYOUT=classic antes de crear la carpeta."; exit 0 ;;
+    proposer|designer)
+      [ "$level" = bugfix ] && { deny "GATEKEEPER: en nivel 'bugfix' el explorer escribe '## Specs' y '## Tasks', y '$agent' no corre. Si el cambio creció a contrato o esquema, sube el nivel a 'full' en $feature/.level."; exit 0; }
+      sec Exploración ;;
+    implementer)
+      sec Specs; sec Tasks
+      [ "$level" = full ] && sec Diseño
+      printf '%s' "$prompt" | grep -Eq '(^|[^A-Za-z0-9])T[0-9]+' \
+        || lack "el prompt del implementer no nombra su tarea (T#). Handoff por referencia: 'Spec: <ruta>/feature.md (lee hasta ## Log). Haz T3; S2, S4.'" ;;
+    verifier)   sec Specs; sec Tasks
+                for f in 05-apply-progress.md tdd-evidence.log; do [ -s "$dir/$f" ] || lack "$feature/$f"; done ;;
+    code-reviewer|security-reviewer)
+                sec Specs; [ -s "$dir/05-apply-progress.md" ] || lack "$feature/05-apply-progress.md" ;;
+    archiver)   [ -s "$dir/gates.md" ] || lack "$feature/gates.md" ;;
+  esac
+  # Handoff por referencia: un prompt largo es una paráfrasis del pedido o de un artefacto.
+  if [ "$agent" != explorer ] && [ "$HANDOFF_MAX_CHARS" -gt 0 ] && [ "${#prompt}" -gt "$HANDOFF_MAX_CHARS" ]; then
+    lack "el prompt de '$agent' tiene ${#prompt} caracteres (tope SDD_HANDOFF_MAX_CHARS=$HANDOFF_MAX_CHARS). Pásale la referencia, no el contenido: ruta de feature.md, T# y S#."
+  fi
+  if [ "$agent" = implementer ] && [ "$level" = full ] && [ -z "$need" ]; then
+    if ! grep -iE 'gate[[:space:]]*1' "$dir/gates.md" 2>/dev/null \
+       | grep -ivE 'no[[:space:]]+aprobad|sin[[:space:]]+aprobar|rechazad|cambios' \
+       | grep -qiE 'aprobad|acepto'; then
+      lack "$feature/gates.md no registra el GATE 1 como APROBADO (token 'acepto'). Sin gate no hay implementación."
+    fi
+  fi
+fi
+
+missing="${need:-}"
+if [ "$layout" = classic ]; then
+
 # Insumos por agente, según la sección "Entrada" de cada uno.
 required=""
 if [ "$level" = bugfix ]; then
@@ -68,9 +115,6 @@ else
     archiver)          required="gates.md" ;;
   esac
 fi
-[ -z "$required" ] && exit 0
-
-missing=""
 for f in $required; do
   [ -s "$dir/$f" ] || missing="$missing
 - $feature/$f"
@@ -87,6 +131,8 @@ if [ "$agent" = implementer ] && [ "$level" = full ] && [ -s "$dir/gates.md" ]; 
     missing="$missing
 - $feature/gates.md no registra el GATE 1 como APROBADO (token 'acepto'). Sin gate no hay implementación."
   fi
+fi
+
 fi
 
 # Rotación del apply-progress. El implementer lo relee entero en cada tarea, así que
@@ -112,7 +158,7 @@ if [ -n "$missing" ]; then
   else
     where="Estos artefactos son los de $PROJECT_DIR, el repositorio de la sesión. Si el trabajo pedido es sobre otro repositorio, no corras acá la fase que falta: abrí la sesión en la raíz de ese repositorio, que es donde viven sus artefactos."
   fi
-  deny "GATEKEEPER: no se puede lanzar '$agent' (nivel $level). Falta:$missing
+  deny "GATEKEEPER: no se puede lanzar '$agent' (nivel $level, layout $layout). Falta:$missing
 
 $where
 Cada agente recibe artefactos, no contexto de chat: sin el insumo previo el resultado sería inventado. Corré la fase que lo produce, o corregí el puntero (<git dir>/sdd-current; en el checkout principal, también <raíz>/.current) si la feature activa no es la que creés."

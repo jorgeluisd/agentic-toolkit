@@ -63,7 +63,7 @@ if [ "$level" = full ]; then
 fi
 
 # 5) El proposer o el designer marcaron que el GATE 2 es humano (disparador del proyecto).
-for a in 01-proposal.md 03-design.md 00-explore.md; do
+for a in feature.md 01-proposal.md 03-design.md 00-explore.md; do
   [ -f "$dir/$a" ] && grep -Eiq '^GATE 2:[[:space:]]*humano' "$dir/$a" && why "$a marca 'GATE 2: humano' (disparador del proyecto)"
 done
 
@@ -86,6 +86,44 @@ $files
 EOF
 fi
 
+# 7) Layout lite: cada S# de '## Specs' tiene veredicto PASS en 06-verify.md, y cada tarea
+#    de '## Tasks' quedó cerrada con el commit que la contiene (sin prueba no hay checkoff).
+layout="$(feature_layout "$dir")"
+if [ "$layout" = lite ] && [ -f "$dir/feature.md" ]; then
+  specs="$(section_body "$dir/feature.md" Specs | sed -nE 's/^[[:space:]]*[-*]?[[:space:]]*\**(S[0-9]+)[.):*].*/\1/p' | sort -u)"
+  [ -n "$specs" ] || why "feature.md no numera specs (S1, S2…) en '## Specs'"
+  for sid in $specs; do
+    line="$(grep -E "(^|[^A-Za-z0-9])$sid([^0-9]|\$)" "$v" 2>/dev/null | grep -E 'PASS|FAIL' | tail -1)"
+    case "$line" in
+      *FAIL*) why "06-verify.md da FAIL en $sid" ;;
+      *PASS*) ;;
+      *) why "06-verify.md no da veredicto para $sid" ;;
+    esac
+  done
+  tasks="$(section_body "$dir/feature.md" Tasks)"
+  open_t="$(printf '%s\n' "$tasks" | sed -nE 's/^[[:space:]]*- \[ \][[:space:]]*\**(T[0-9]+).*/\1/p' | tr '\n' ' ')"
+  [ -z "$open_t" ] || why "tareas sin cerrar en feature.md: $open_t"
+  nosha="$(printf '%s\n' "$tasks" | grep -E '^[[:space:]]*- \[[xX]\]' | grep -Ev '(^|[^0-9a-f])[0-9a-f]{7,40}([^0-9a-f]|$)' \
+    | sed -nE 's/^[[:space:]]*- \[[xX]\][[:space:]]*\**(T[0-9]+).*/\1/p' | tr '\n' ' ')"
+  [ -z "$nosha" ] || why "tareas cerradas sin el commit que las prueba: $nosha"
+fi
+
+# 8) Gasto proporcional al riesgo (review-plan.sh): en alto, review doble a ciegas y security.
+tier="$(printf '%s\n' "${files:-}" | risk_tier)"
+if [ "$tier" = alto ]; then
+  r2="$dir/07-review-2.md"
+  if [ ! -f "$r2" ]; then why "riesgo alto: falta la segunda review a ciegas (07-review-2.md)"
+  else grep -Eiq 'veredicto:[[:space:]]*APROBADO' "$r2" || why "07-review-2.md no está APROBADO"
+  fi
+  [ -f "$s" ] || why "riesgo alto: falta 07-security.md (el security-reviewer es obligatorio)"
+fi
+
+# 9) Un lockfile cambiado exige la madurez de las versiones nuevas (release-age.sh).
+if printf '%s\n' "${files:-}" | grep -Eq '(^|/)(pnpm-lock\.yaml|go\.sum)$'; then
+  grep -Eq '^release-age:[[:space:]]*OK' "$v" 2>/dev/null \
+    || why "el diff cambia un lockfile y 06-verify.md no trae 'release-age: OK' (corre release-age.sh)"
+fi
+
 if [ -n "$reasons" ]; then
   printf 'GATE 2 HUMANO. Motivos:\n%s' "$reasons"; exit 1
 fi
@@ -93,7 +131,7 @@ fi
 sec="no corrió"; [ -f "$s" ] && sec="sin críticos/altos, riesgo aceptable"
 # Contrato: la primera línea es exactamente `GATE 2 · auto · sha: <sha de 40>`, que es lo
 # que leen el hook y los scripts de merge de los proyectos; el detalle va en la siguiente.
-printf 'GATE 2 · auto · sha: %s\n  %s · APROBADO · base: %s · verify PASS · review APROBADO · security %s · sin ADR propuesto · sin rutas humanas\n' \
-  "$head" "$(date +%Y-%m-%d)" "$BASE_BRANCH" "$sec" >> "$dir/gates.md"
+printf 'GATE 2 · auto · sha: %s\n  %s · APROBADO · base: %s · riesgo %s · verify PASS · review APROBADO · security %s · sin ADR propuesto · sin rutas humanas\n' \
+  "$head" "$(date +%Y-%m-%d)" "$BASE_BRANCH" "$tier" "$sec" >> "$dir/gates.md"
 echo "GATE 2 automático registrado para $head en $feature/gates.md."
 exit 0
