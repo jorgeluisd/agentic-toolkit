@@ -390,6 +390,10 @@ t "doc que menciona un commit -a"           "$(cmd "$(hd '- git commit -a versio
 t "el flag ejecutado de verdad"             "$(cmd "git commit --no-verify -m 'x'")"                            deny
 t "el push forzado ejecutado de verdad"     "$(cmd 'git push --force origin feat/x')"                       deny
 t "el push a la base ejecutado de verdad"   "$(cmd 'git push origin develop')"                              ask
+t "--no-verify dentro del body de un PR"    "$(cmd "gh pr create --title x --body 'no usamos git commit --no-verify'")"  allow
+t "--no-verify dentro de un -m entre comillas" "$(cmd 'git commit -m "sin --no-verify esta vez"')"             allow
+t "--no-verify entre comillas es un flag"  "$(cmd "git commit '--no-verify' -m x")"                           deny
+t "-m entre comillas y --no-verify afuera" "$(cmd 'git commit -m "x" --no-verify')"                           deny
 t "heredoc + comando real: manda el real"   "$(cmd "$(hd '- doc')"$'\n'"git commit --no-verify -m 'x'")"       deny
 # Un heredoc que alimenta a un intérprete SÍ se ejecuta: ahí el cuerpo es código.
 BHD="$(printf 'bash <<%sEOF%s\ngit push --force origin main\nEOF\n' "'" "'")"
@@ -530,6 +534,18 @@ t "suite tras GREEN (cierre) no marca"     "$(lastwarn)"  -
 ev 'pnpm test' '2 failed' 1
 ev 'pnpm test' '10 passed' 0
 t "suite tras suite no marca"              "$(lastwarn)"  -
+
+sec "Salida recortada: no es lo mismo que no correr tests (issue #19)"
+lastw(){ tail -n 1 "$F/tdd-evidence.log" | grep -oE 'output-truncated|no-tests-ran' | head -1 || echo "-"; }
+: > "$F/tdd-evidence.log"
+ev 'pnpm test' "$(head -c 12000 /dev/zero | tr '\0' 'x')" 0
+t "salida larga sin resumen: recortada"    "$(lastw)" output-truncated
+ev 'pnpm test' 'Output too large, saved to /tmp/out.txt' 0
+t "aviso de recorte: recortada"            "$(lastw)" output-truncated
+ev 'pnpm test' 'nothing here' 0
+t "salida corta sin tests: no corrió"      "$(lastw)" no-tests-ran
+ev 'pnpm test' 'Tests  12 passed (12)' 0
+t "con conteo: sin aviso"                  "$( tail -n 1 "$F/tdd-evidence.log" | grep -cE 'output-truncated|no-tests-ran')" 0
 
 sec "PostToolUseFailure · la llamada fallida llega con su salida"
 # PostToolUse solo llega cuando la llamada Bash termina en 0. Cuando falla llega
